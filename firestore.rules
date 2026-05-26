@@ -53,8 +53,9 @@ service cloud.firestore {
 
     // ── Vendedores ────────────────────────────────────────────
     match /vendors/{vendorId} {
-      // Cada vendedor lee solo su propio perfil; admin lee todos
-      allow read: if isAuth() && (request.auth.uid == vendorId || isAdmin());
+      // Cualquier usuario autenticado puede leer perfiles de vendedores
+      // (son compañeros de equipo, no hay datos sensibles que ocultar entre sí)
+      allow read: if isAuth();
 
       // Admin puede crear perfiles de vendedores
       allow create: if isAdmin();
@@ -63,7 +64,7 @@ service cloud.firestore {
       allow update: if isAuth() && request.auth.uid == vendorId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcm_tokens']);
 
-      // Admin puede actualizar cualquier campo
+      // Admin puede actualizar cualquier campo del perfil
       allow update: if isAdmin();
 
       allow delete: if false;
