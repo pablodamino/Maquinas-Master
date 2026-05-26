@@ -104,7 +104,17 @@ function showApp() {
   const nombre = currentVendor?.nombre || currentUser?.email || '';
   $('header-user-name').textContent = nombre;
   $('header-avatar').textContent = initials(nombre);
-  if (isAdmin) show('fab-add'); else hide('fab-add');
+  if (isAdmin) {
+    show('fab-add');
+    hide('debug-bar');
+  } else {
+    hide('fab-add');
+    // Mostrar barra de debug para ayudar a diagnosticar
+    $('debug-uid').textContent  = `UID: ${currentUser?.uid}`;
+    $('debug-rol').textContent  = `rol detectado: "${currentVendor?.rol || 'ninguno'}"`;
+    $('debug-admin').textContent = `isAdmin: ${isAdmin}`;
+    show('debug-bar');
+  }
   counterTimer = setInterval(refreshCounters, 60000);
 }
 
