@@ -254,7 +254,9 @@ function cardCaminoHtml(m) {
         </div>
         <div class="card-actions">
           ${adminBtns}
-          <button class="btn btn-success btn-sm" onclick="openSellModal('${m.id}')">Registrar venta</button>
+          ${m.cliente
+            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>`
+            : `<button class="btn btn-success btn-sm" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
         </div>
       </div>
     </div>`;
@@ -280,7 +282,9 @@ function cardInmediataHtml(m) {
         </div>
         <div class="card-actions">
           ${adminBtns}
-          <button class="btn btn-success" onclick="openSellModal('${m.id}')">Registrar venta</button>
+          ${m.cliente
+            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>`
+            : `<button class="btn btn-success" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
         </div>
       </div>
     </div>`;
@@ -478,7 +482,9 @@ function openStateModal(id) {
   const transitions = {
     pedido:            [{ estado:'embarcado',         icon:'🚢', title:'Marcar como Embarcada',       desc:'La máquina está en tránsito' }],
     embarcado:         [{ estado:'entrega_inmediata',  icon:'🏭', title:'Llegó a Planta',               desc:'Disponible para entrega inmediata' }],
-    entrega_inmediata: []
+    entrega_inmediata: [{ estado:'vendida_instalada', icon:'✅',
+      title:'Instalar y Entregar',
+      desc: m.cliente ? `Entregada a ${m.cliente}` : 'Marcar como vendida e instalada' }],
   };
 
   const opts = transitions[m.estado] || [];
@@ -529,20 +535,19 @@ window.openSellModal = openSellModal;
 
 $('form-sell').addEventListener('submit', async (e) => {
   e.preventDefault(); if (!activeSellId) return; clearErr('sell-error');
-  const cliente          = $('sell-cliente').value.trim();
-  const caracteristicas  = $('sell-caracteristicas').value.trim();
-  const notas            = $('sell-notas').value.trim();
-  if (!cliente || !caracteristicas) return;
+  const cliente = $('sell-cliente').value.trim();
+  const notas   = $('sell-notas').value.trim();
+  if (!cliente) return;
   setBtn('sell-submit-btn', true);
   try {
     await db.collection('machines').doc(activeSellId).update({
-      estado: 'vendida_instalada', cliente, caracteristicas, notas,
+      cliente, notas,
       vendido_por: currentVendor?.nombre || currentUser.email,
       fecha_venta: firebase.firestore.FieldValue.serverTimestamp(),
       actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
     });
     hide('modal-sell');
-    showToast('Venta registrada', `Vendida a ${cliente}`, 'success');
+    showToast('Venta registrada', `Vendida a ${cliente} — se instalará cuando el admin cierre la logística`, 'success');
     activeSellId = null;
   } catch (err) {
     showErr('sell-error', 'Error: ' + err.message);

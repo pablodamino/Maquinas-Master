@@ -135,7 +135,7 @@
     <div id="section-vendidas">
       <div class="section-header" id="toggle-vendidas-header">
         <div class="section-stripe" style="background:#a78bfa"></div>
-        <span class="section-title">Maquinas Vendidas</span>
+        <span class="section-title">Vendidas e Instaladas</span>
         <span id="count-vendidas" class="section-count">0</span>
         <span id="toggle-vendidas-icon">▼</span>
       </div>
@@ -314,12 +314,8 @@
         <input type="text" id="sell-cliente" placeholder="Nombre del cliente o empresa" required />
       </div>
       <div class="form-group">
-        <label for="sell-caracteristicas">Características del equipo vendido *</label>
-        <textarea id="sell-caracteristicas" placeholder="Configuración específica, accesorios incluidos, número de serie..." required></textarea>
-      </div>
-      <div class="form-group">
         <label for="sell-notas">Notas de la venta (opcional)</label>
-        <textarea id="sell-notas" placeholder="Condiciones, acuerdos, observaciones..."></textarea>
+        <textarea id="sell-notas" placeholder="Condiciones, acuerdos, número de serie, observaciones..."></textarea>
       </div>
       <div id="sell-error" class="error-msg hidden"></div>
       <div class="modal-actions">
@@ -333,7 +329,7 @@
 <!-- Toast container -->
 <div id="toast-container" aria-live="polite"></div>
 
-<script src="firebase-config.js?v=1.5"></script>
-<script src="app.js?v=1.5"></script>
+<script src="firebase-config.js?v=1.6"></script>
+<script src="app.js?v=1.6"></script>
 </body>
 </html>

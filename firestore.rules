@@ -43,11 +43,16 @@ service cloud.firestore {
           && resource.data.estado == 'embarcado'
           && request.resource.data.estado == 'entrega_inmediata')
         ||
-        // Cualquier vendedor puede registrar una venta (→ vendida_instalada)
+        // Admin: entrega_inmediata → vendida_instalada (instalación final)
+        (isAdmin()
+          && resource.data.estado == 'entrega_inmediata'
+          && request.resource.data.estado == 'vendida_instalada')
+        ||
+        // Cualquier vendedor puede registrar una venta sin cambiar el estado logístico
         (isVendor()
           && resource.data.estado != 'vendida_instalada'
-          && request.resource.data.estado == 'vendida_instalada'
-          && request.resource.data.keys().hasAll(['cliente', 'vendido_por', 'fecha_venta', 'caracteristicas']))
+          && request.resource.data.estado == resource.data.estado
+          && request.resource.data.keys().hasAll(['cliente', 'vendido_por', 'fecha_venta']))
       );
 
       // Solo admin puede eliminar máquinas

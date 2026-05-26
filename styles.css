@@ -384,6 +384,11 @@ input[type="file"]:hover { border-color: var(--red); }
 .badge-embarcado { background:var(--embarc-bg); color:var(--embarc-text); border:1px solid var(--embarc-border); }
 .badge-inmediata { background:var(--inm-bg);    color:var(--inm-text);    border:1px solid var(--inm-border); }
 .badge-vendida   { background:var(--vend-bg);   color:var(--vend-text);   border:1px solid var(--vend-border); }
+.venta-info {
+  font-size: .78rem; font-weight: 600; color: var(--red);
+  background: #fff0f0; border: 1px solid #fecaca;
+  border-radius: var(--radius-sm); padding: .3rem .6rem;
+}
 
 /* ── Counter días ──────────────────────────────────── */
 .card-counter {
