@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function vendorDoc() {
+      return get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuth() && vendorDoc().rol == 'admin';
+    }
+
+    function isVendor() {
+      return isAuth() && vendorDoc().rol in ['admin', 'vendedor'];
+    }
+
+    // ── Máquinas ──────────────────────────────────────────────
+    match /machines/{machineId} {
+      // Cualquier vendedor autenticado puede leer todo el inventario
+      allow read: if isVendor();
+
+      // Solo admin puede crear — y solo con estado inicial 'pedido'
+      allow create: if isAdmin()
+        && request.resource.data.estado == 'pedido'
+        && request.resource.data.keys().hasAll(['modelo', 'estado', 'fecha_oc', 'creado_por']);
+
+      // Transiciones de estado controladas por rol
+      allow update: if isAuth() && (
+        // Admin: pedido → embarcado
+        (isAdmin()
+          && resource.data.estado == 'pedido'
+          && request.resource.data.estado == 'embarcado')
+        ||
+        // Admin: embarcado → entrega_inmediata
+        (isAdmin()
+          && resource.data.estado == 'embarcado'
+          && request.resource.data.estado == 'entrega_inmediata')
+        ||
+        // Cualquier vendedor puede registrar una venta (→ vendida_instalada)
+        (isVendor()
+          && resource.data.estado != 'vendida_instalada'
+          && request.resource.data.estado == 'vendida_instalada'
+          && request.resource.data.keys().hasAll(['cliente', 'vendido_por', 'fecha_venta', 'caracteristicas']))
+      );
+
+      // Nadie puede borrar máquinas — quedan como historial permanente
+      allow delete: if false;
+    }
+
+    // ── Vendedores ────────────────────────────────────────────
+    match /vendors/{vendorId} {
+      // Cada vendedor lee solo su propio perfil; admin lee todos
+      allow read: if isAuth() && (request.auth.uid == vendorId || isAdmin());
+
+      // Admin puede crear perfiles de vendedores
+      allow create: if isAdmin();
+
+      // Vendedor solo puede actualizar sus propios tokens FCM
+      allow update: if isAuth() && request.auth.uid == vendorId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcm_tokens']);
+
+      // Admin puede actualizar cualquier campo
+      allow update: if isAdmin();
+
+      allow delete: if false;
+    }
+
+    // ── Notificaciones ────────────────────────────────────────
+    match /notifications/{notifId} {
+      // Solo lectura para vendedores autenticados
+      allow read: if isVendor();
+      // Escritura solo desde Cloud Functions (Admin SDK bypasea estas reglas)
+      allow write: if false;
+    }
+  }
+}

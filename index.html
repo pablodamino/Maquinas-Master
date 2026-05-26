@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Control de stock de maquinaria pesada en tiempo real" />
+  <title>Maquinas Master — Stock</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase SDK (compat — no build tools requeridos) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     PANTALLA DE LOGIN
+═════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Maquinas Master</h1>
+    <p>Ingresá con tu cuenta de vendedor</p>
+
+    <form id="login-form" autocomplete="on">
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" name="email"
+               placeholder="vendedor@empresa.com"
+               autocomplete="email" required />
+      </div>
+      <div class="form-group">
+        <label for="login-password">Contraseña</label>
+        <input type="password" id="login-password" name="password"
+               placeholder="••••••••"
+               autocomplete="current-password" required />
+      </div>
+      <div id="login-error" class="error-msg hidden"></div>
+      <button type="submit" class="btn btn-primary mt-2" id="login-btn">
+        Ingresar
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     APP PRINCIPAL (oculta hasta autenticarse)
+═════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+
+  <!-- Header -->
+  <header id="app-header">
+    <div class="header-title">
+      Maquinas Master
+      <span id="header-user-name">Cargando...</span>
+    </div>
+    <button id="bell-btn" title="Notificaciones" aria-label="Activar notificaciones">
+      🔔
+      <span id="notif-badge" class="notif-badge hidden">0</span>
+    </button>
+    <button id="logout-btn" class="btn btn-ghost btn-sm">Salir</button>
+  </header>
+
+  <!-- Contenido principal -->
+  <main id="main-content">
+
+    <!-- ── Sección: Maquinas en Camino ─────────── -->
+    <div class="section-header">
+      <span class="section-title">Maquinas en Camino</span>
+      <span id="count-camino" class="section-count">0</span>
+    </div>
+    <div id="grid-camino" class="card-grid">
+      <div class="empty-state">Cargando...</div>
+    </div>
+
+    <!-- ── Sección: Entrega Inmediata ──────────── -->
+    <div class="section-header">
+      <span class="section-title">Entrega Inmediata</span>
+      <span id="count-inmediata" class="section-count">0</span>
+    </div>
+    <div id="grid-inmediata" class="card-grid">
+      <div class="empty-state">Sin equipos disponibles</div>
+    </div>
+
+    <!-- ── Sección: Maquinas Vendidas ──────────── -->
+    <div id="section-vendidas">
+      <div class="section-header" id="toggle-vendidas-header" style="cursor:pointer;">
+        <span class="section-title">Maquinas Vendidas</span>
+        <span id="count-vendidas" class="section-count">0</span>
+        <span id="toggle-vendidas-icon">▼</span>
+      </div>
+      <div id="tabla-vendidas-wrapper" class="hidden">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th>Fecha venta</th>
+                <th>Caracteristicas / Notas</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-vendidas-body">
+              <tr><td colspan="5" class="text-center text-muted" style="padding:2rem">Sin maquinas vendidas aún</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FAB: solo visible para admin -->
+  <button id="fab-add" class="hidden" title="Agregar maquina" aria-label="Agregar nueva maquina">+</button>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: AGREGAR MAQUINA (solo admin)
+═════════════════════════════════════════════════════ -->
+<div id="modal-add" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-add-title">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-add-title">Nueva Maquina</h2>
+      <button class="modal-close" data-close-modal="modal-add" aria-label="Cerrar">×</button>
+    </div>
+    <form id="form-add-machine">
+      <div class="form-group">
+        <label for="add-modelo">Modelo *</label>
+        <input type="text" id="add-modelo" placeholder="Ej: R2, CAT320, JD 5105" required />
+      </div>
+      <div class="form-group">
+        <label for="add-fecha-oc">Fecha confirmación OC *</label>
+        <input type="date" id="add-fecha-oc" required />
+      </div>
+      <div class="form-group">
+        <label for="add-notas">Notas internas (opcional)</label>
+        <textarea id="add-notas" placeholder="Especificaciones, color, accesorios..."></textarea>
+      </div>
+      <div id="add-error" class="error-msg hidden"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal="modal-add">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="add-submit-btn">Agregar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: CAMBIAR ESTADO (solo admin)
+═════════════════════════════════════════════════════ -->
+<div id="modal-state" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-state-title">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-state-title">Cambiar Estado</h2>
+      <button class="modal-close" data-close-modal="modal-state" aria-label="Cerrar">×</button>
+    </div>
+    <p id="modal-state-info" class="text-muted" style="margin-bottom:1.25rem;font-size:0.9rem"></p>
+    <div id="state-options" class="card-actions" style="flex-direction:column;gap:0.75rem"></div>
+    <div id="state-error" class="error-msg hidden"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════
+     MODAL: REGISTRAR VENTA
+═════════════════════════════════════════════════════ -->
+<div id="modal-sell" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-sell-title">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-sell-title">Registrar Venta</h2>
+      <button class="modal-close" data-close-modal="modal-sell" aria-label="Cerrar">×</button>
+    </div>
+    <p id="modal-sell-info" class="text-muted" style="margin-bottom:1.25rem;font-size:0.9rem"></p>
+    <form id="form-sell">
+      <div class="form-group">
+        <label for="sell-cliente">Cliente / Comprador *</label>
+        <input type="text" id="sell-cliente" placeholder="Nombre del cliente o empresa" required />
+      </div>
+      <div class="form-group">
+        <label for="sell-caracteristicas">Caracteristicas del equipo vendido *</label>
+        <textarea id="sell-caracteristicas" placeholder="Color, accesorios, número de serie, configuración especial..." required></textarea>
+      </div>
+      <div class="form-group">
+        <label for="sell-notas">Notas adicionales (opcional)</label>
+        <textarea id="sell-notas" placeholder="Condiciones de pago, acuerdos, observaciones..."></textarea>
+      </div>
+      <div id="sell-error" class="error-msg hidden"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close-modal="modal-sell">Cancelar</button>
+        <button type="submit" class="btn btn-success" id="sell-submit-btn">Confirmar Venta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- Scripts -->
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
