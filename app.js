@@ -255,7 +255,9 @@ function cardCaminoHtml(m) {
         <div class="card-actions">
           ${adminBtns}
           ${m.cliente
-            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>`
+            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>
+               <button class="btn btn-ghost btn-sm" onclick="openSellModal('${m.id}', true)" title="Editar venta">✏ Editar</button>
+               <button class="btn-icon danger" onclick="cancelSale('${m.id}')" title="Cancelar venta">✕</button>`
             : `<button class="btn btn-success btn-sm" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
         </div>
       </div>
@@ -283,7 +285,9 @@ function cardInmediataHtml(m) {
         <div class="card-actions">
           ${adminBtns}
           ${m.cliente
-            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>`
+            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>
+               <button class="btn btn-ghost btn-sm" onclick="openSellModal('${m.id}', true)" title="Editar venta">✏ Editar</button>
+               <button class="btn-icon danger" onclick="cancelSale('${m.id}')" title="Cancelar venta">✕</button>`
             : `<button class="btn btn-success" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
         </div>
       </div>
@@ -523,12 +527,16 @@ async function changeState(id, newState, m) {
 }
 
 // ── H) REGISTRAR VENTA ────────────────────────────
-function openSellModal(id) {
+function openSellModal(id, editing = false) {
   activeSellId = id;
   const m = [...caminoData, ...inmediataData].find(x => x.id === id);
-  $('modal-sell-title').textContent = `Registrar Venta — ${m?.modelo || ''}`;
+  $('modal-sell-title').textContent = editing ? `Editar Venta — ${m?.modelo || ''}` : `Registrar Venta — ${m?.modelo || ''}`;
   $('modal-sell-info').textContent  = `Estado actual: ${estadoLabel(m?.estado)}`;
   $('form-sell').reset(); clearErr('sell-error');
+  if (editing && m) {
+    $('sell-cliente').value = m.cliente || '';
+    $('sell-notas').value   = m.notas   || '';
+  }
   show('modal-sell');
 }
 window.openSellModal = openSellModal;
@@ -554,6 +562,19 @@ $('form-sell').addEventListener('submit', async (e) => {
   }
   setBtn('sell-submit-btn', false);
 });
+
+// ── H2) CANCELAR VENTA ───────────────────────────
+function cancelSale(id) {
+  const m = [...caminoData, ...inmediataData].find(x => x.id === id);
+  if (!m) return;
+  if (!window.confirm(`¿Cancelar la venta de "${m.modelo}" a ${m.cliente}?\nLa máquina quedará disponible nuevamente.`)) return;
+  db.collection('machines').doc(id).update({
+    cliente: null, vendido_por: null, fecha_venta: null,
+    actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => showToast('Venta cancelada', `${m.modelo} vuelve a estar disponible`, 'success'))
+    .catch(err => showToast('Error', err.message, 'error'));
+}
+window.cancelSale = cancelSale;
 
 // ── I) PUSH NOTIFICATIONS ─────────────────────────
 async function registerPush() {
