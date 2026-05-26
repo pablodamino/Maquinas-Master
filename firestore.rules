@@ -26,7 +26,7 @@ service cloud.firestore {
       // Solo admin puede crear — y solo con estado inicial 'pedido'
       allow create: if isAdmin()
         && request.resource.data.estado == 'pedido'
-        && request.resource.data.keys().hasAll(['modelo', 'estado', 'fecha_oc', 'creado_por']);
+        && request.resource.data.keys().hasAll(['modelo', 'estado', 'fecha_oc', 'creado_por', 'caracteristicas']);
 
       // Transiciones de estado controladas por rol
       allow update: if isAuth() && (

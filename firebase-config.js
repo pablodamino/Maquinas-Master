@@ -1,7 +1,5 @@
-// Configuración de Firebase
-// La API key del cliente es pública por diseño — la seguridad la imponen las Firestore Rules y Firebase Auth.
-// INSTRUCCIONES: Reemplazá los valores REEMPLAZAR_CON_* con los de tu proyecto Firebase.
-// Los encontrás en: Firebase Console → Project Settings → General → Tu app web
+// Configuración de Firebase — Pantógrafos Master Stock App
+// La API key del cliente es pública por diseño. Seguridad = Firestore Rules + Firebase Auth.
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDMyw0DjFlnq7qyfizBUhblCNyQKt-OPrU",
@@ -12,38 +10,28 @@ const FIREBASE_CONFIG = {
   appId: "1:912625811269:web:83b3cf64c15aebb39d882c"
 };
 
-// VAPID Key para Web Push (Firebase Console → Project Settings → Cloud Messaging → Web Push certificates)
 const VAPID_KEY = "BDoZNwLGIh1JKkVLdDB_ju56cQGh6l08ieZW9MPMT6KEJpjuubSckR5s9KaLxlfWpwPfjA7cSwjeoLlidaCmDPM";
 
-// Inicializar Firebase
 firebase.initializeApp(FIREBASE_CONFIG);
 
-const db = firebase.firestore();
-const auth = firebase.auth();
+const db        = firebase.firestore();
+const auth      = firebase.auth();
 const messaging = firebase.messaging();
+const storage   = firebase.storage();
 
-// Registrar Service Worker y obtener token FCM para push notifications
+// Registrar Service Worker y obtener token FCM
 async function inicializarPush() {
-  if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-    console.warn('Este browser no soporta notificaciones push.');
-    return null;
-  }
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) return null;
   if (Notification.permission === 'denied') return null;
-
   try {
-    const swReg = await navigator.serviceWorker.register('/Maquinas-Master/firebase-messaging-sw.js', {
-      scope: '/Maquinas-Master/'
-    });
+    const swReg = await navigator.serviceWorker.register(
+      '/Maquinas-Master/firebase-messaging-sw.js',
+      { scope: '/Maquinas-Master/' }
+    );
     await navigator.serviceWorker.ready;
-
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;
-
-    const token = await firebase.messaging().getToken({
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swReg
-    });
-    return token;
+    return await firebase.messaging().getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
   } catch (err) {
     console.error('Error iniciando push:', err);
     return null;
@@ -55,5 +43,26 @@ async function guardarTokenFCM(uid, token) {
   if (!token) return;
   await db.collection('vendors').doc(uid).update({
     fcm_tokens: firebase.firestore.FieldValue.arrayUnion(token)
+  });
+}
+
+// Subir imagen a Firebase Storage y devolver la URL de descarga
+async function subirImagen(file, machineId, onProgress) {
+  const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const ref = storage.ref(`machines/${machineId}/cover.${ext}`);
+  const task = ref.put(file);
+
+  return new Promise((resolve, reject) => {
+    task.on('state_changed',
+      (snap) => {
+        const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+        if (onProgress) onProgress(pct);
+      },
+      reject,
+      async () => {
+        const url = await task.snapshot.ref.getDownloadURL();
+        resolve(url);
+      }
+    );
   });
 }
