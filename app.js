@@ -77,13 +77,21 @@ async function loadVendorProfile(uid) {
     const snap = await db.collection('vendors').doc(uid).get();
     if (snap.exists) {
       currentVendor = { id: uid, ...snap.data() };
-      isAdmin = currentVendor.rol === 'admin';
+      // Aceptar "admin" o "Admin" (tolerante a mayúsculas)
+      isAdmin = (currentVendor.rol || '').toLowerCase() === 'admin';
+      console.log('Perfil cargado:', currentVendor.nombre, '| rol:', currentVendor.rol, '| isAdmin:', isAdmin);
     } else {
+      console.warn('No existe documento en vendors/', uid, '— creando con rol vendedor');
       currentVendor = { id: uid, nombre: currentUser.email.split('@')[0], email: currentUser.email, rol: 'vendedor', fcm_tokens: [] };
       await db.collection('vendors').doc(uid).set(currentVendor);
       isAdmin = false;
     }
-  } catch (e) { console.error('Error perfil:', e); }
+  } catch (e) {
+    console.error('Error cargando perfil de vendor:', e);
+    // Si falla la lectura del perfil, intentar continuar con rol básico
+    currentVendor = { id: uid, nombre: currentUser.email.split('@')[0], email: currentUser.email, rol: 'vendedor', fcm_tokens: [] };
+    isAdmin = false;
+  }
 }
 
 function showLogin() {
@@ -123,31 +131,59 @@ $('login-form').addEventListener('submit', async (e) => {
 $('logout-btn').addEventListener('click', () => auth.signOut());
 
 // ── B) FIRESTORE LISTENERS ────────────────────────
+// Ordenamos del lado del cliente para evitar índices compuestos en Firestore
+function sortBy(arr, field, desc = false) {
+  return [...arr].sort((a, b) => {
+    const va = a[field]?.toMillis?.() ?? a[field] ?? 0;
+    const vb = b[field]?.toMillis?.() ?? b[field] ?? 0;
+    return desc ? vb - va : va - vb;
+  });
+}
+
 function startListeners() {
   stopListeners();
 
+  // Máquinas en camino — sin orderBy para no requerir índice compuesto
   const u1 = db.collection('machines')
-    .where('estado', 'in', ['pedido','embarcado'])
-    .orderBy('fecha_oc','asc')
-    .onSnapshot(snap => {
-      caminoData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderCamino();
-    }, err => console.error(err));
+    .where('estado', 'in', ['pedido', 'embarcado'])
+    .onSnapshot(
+      snap => {
+        caminoData = sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_oc');
+        renderCamino();
+      },
+      err => {
+        console.error('Error listener camino:', err);
+        $('grid-camino').innerHTML = '<div class="empty-state">No hay máquinas en camino</div>';
+        $('count-camino').textContent = '0';
+        $('stat-camino').textContent = '0';
+      }
+    );
 
   const u2 = db.collection('machines')
     .where('estado', '==', 'entrega_inmediata')
-    .orderBy('fecha_llegada','asc')
-    .onSnapshot(snap => {
-      inmediataData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderInmediata();
-    }, err => console.error(err));
+    .onSnapshot(
+      snap => {
+        inmediataData = sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_llegada');
+        renderInmediata();
+      },
+      err => {
+        console.error('Error listener inmediata:', err);
+        $('grid-inmediata').innerHTML = '<div class="empty-state">Sin equipos disponibles</div>';
+        $('count-inmediata').textContent = '0';
+        $('stat-inmediata').textContent = '0';
+      }
+    );
 
   const u3 = db.collection('machines')
     .where('estado', '==', 'vendida_instalada')
-    .orderBy('fecha_venta','desc')
-    .onSnapshot(snap => {
-      renderVendidas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, err => console.error(err));
+    .onSnapshot(
+      snap => {
+        renderVendidas(sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_venta', true));
+      },
+      err => {
+        console.error('Error listener vendidas:', err);
+      }
+    );
 
   unsubscribers = [u1, u2, u3];
 
