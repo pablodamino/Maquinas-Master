@@ -4,17 +4,16 @@
 // Los encontrás en: Firebase Console → Project Settings → General → Tu app web
 
 const FIREBASE_CONFIG = {
-  apiKey: "REEMPLAZAR_CON_TU_API_KEY",
-  authDomain: "REEMPLAZAR_CON_TU_AUTH_DOMAIN",
-  projectId: "REEMPLAZAR_CON_TU_PROJECT_ID",
-  storageBucket: "REEMPLAZAR_CON_TU_STORAGE_BUCKET",
-  messagingSenderId: "REEMPLAZAR_CON_TU_MESSAGING_SENDER_ID",
-  appId: "REEMPLAZAR_CON_TU_APP_ID"
+  apiKey: "AIzaSyDMyw0DjFlnq7qyfizBUhblCNyQKt-OPrU",
+  authDomain: "maquinas-master.firebaseapp.com",
+  projectId: "maquinas-master",
+  storageBucket: "maquinas-master.firebasestorage.app",
+  messagingSenderId: "912625811269",
+  appId: "1:912625811269:web:83b3cf64c15aebb39d882c"
 };
 
-// VAPID Key para Web Push — la encontrás en:
-// Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → Key pair
-const VAPID_KEY = "REEMPLAZAR_CON_TU_VAPID_KEY";
+// VAPID Key para Web Push (Firebase Console → Project Settings → Cloud Messaging → Web Push certificates)
+const VAPID_KEY = "BDoZNwLGIh1JKkVLdDB_ju56cQGh6l08ieZW9MPMT6KEJpjuubSckR5s9KaLxlfWpwPfjA7cSwjeoLlidaCmDPM";
 
 // Inicializar Firebase
 firebase.initializeApp(FIREBASE_CONFIG);
