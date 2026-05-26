@@ -30,6 +30,9 @@ service cloud.firestore {
 
       // Transiciones de estado controladas por rol
       allow update: if isAuth() && (
+        // Admin: editar metadata sin cambiar el estado (modelo, caracteristicas, notas, imagen, etc.)
+        (isAdmin() && request.resource.data.estado == resource.data.estado)
+        ||
         // Admin: pedido → embarcado
         (isAdmin()
           && resource.data.estado == 'pedido'
@@ -47,8 +50,8 @@ service cloud.firestore {
           && request.resource.data.keys().hasAll(['cliente', 'vendido_por', 'fecha_venta', 'caracteristicas']))
       );
 
-      // Nadie puede borrar máquinas — quedan como historial permanente
-      allow delete: if false;
+      // Solo admin puede eliminar máquinas
+      allow delete: if isAdmin();
     }
 
     // ── Vendedores ────────────────────────────────────────────

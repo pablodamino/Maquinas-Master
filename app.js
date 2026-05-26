@@ -12,6 +12,7 @@ let notifCount    = 0;
 let counterTimer  = null;
 let caminoData    = [];
 let inmediataData = [];
+let vendidasData  = [];
 
 // ── Helpers DOM ───────────────────────────────────
 const $  = (id) => document.getElementById(id);
@@ -231,7 +232,8 @@ function cardCaminoHtml(m) {
   const dias = diasDesde(m.fecha_oc);
   const adminBtns = isAdmin ? `
     <button class="btn btn-outline btn-sm" onclick="openStateModal('${m.id}')">Estado logístico</button>
-    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>` : '';
+    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
+    <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>` : '';
   return `
     <div class="machine-card" id="card-${m.id}">
       ${imageHtml(m)}
@@ -261,7 +263,8 @@ function cardCaminoHtml(m) {
 function cardInmediataHtml(m) {
   const adminBtns = isAdmin ? `
     <button class="btn btn-outline btn-sm" onclick="openStateModal('${m.id}')">Estado</button>
-    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>` : '';
+    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
+    <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>` : '';
   return `
     <div class="machine-card inmediata" id="card-${m.id}">
       ${imageHtml(m)}
@@ -302,9 +305,16 @@ function renderInmediata() {
 }
 
 function renderVendidas(maquinas) {
+  vendidasData = maquinas;
   const n = maquinas.length;
   $('count-vendidas').textContent = n;
   $('stat-vendidas').textContent  = n;
+  const actionsTd = (m) => isAdmin
+    ? `<td class="td-actions">
+        <button class="btn-icon" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
+        <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>
+      </td>`
+    : '<td></td>';
   $('tabla-vendidas-body').innerHTML = n
     ? maquinas.map(m => `
         <tr>
@@ -314,8 +324,9 @@ function renderVendidas(maquinas) {
           <td>${escHtml(m.vendido_por || '—')}</td>
           <td style="white-space:nowrap">${formatFecha(m.fecha_venta)}</td>
           <td class="notas-cell">${escHtml(m.caracteristicas || '')}${m.notas ? '<br><em>'+escHtml(m.notas)+'</em>' : ''}</td>
+          ${actionsTd(m)}
         </tr>`).join('')
-    : `<tr><td colspan="6" class="text-center text-muted" style="padding:2rem">Sin máquinas vendidas aún</td></tr>`;
+    : `<tr><td colspan="7" class="text-center text-muted" style="padding:2rem">Sin máquinas vendidas aún</td></tr>`;
 }
 
 function refreshCounters() {
@@ -396,13 +407,21 @@ $('form-add-machine').addEventListener('submit', async (e) => {
 function openEditModal(id) {
   if (!isAdmin) return;
   activeEditId = id;
-  const m = [...caminoData, ...inmediataData].find(x => x.id === id);
+  const m = [...caminoData, ...inmediataData, ...vendidasData].find(x => x.id === id);
   if (!m) return;
+  const isVendida = m.estado === 'vendida_instalada';
   clearErr('edit-error');
   $('edit-machine-id').value = id;
   $('edit-modelo').value = m.modelo || '';
   $('edit-caracteristicas').value = m.caracteristicas || '';
   $('edit-notas').value = m.notas || '';
+  if (isVendida) {
+    $('edit-cliente').value = m.cliente || '';
+    $('edit-vendido-por').value = m.vendido_por || '';
+    show('edit-vendida-fields');
+  } else {
+    hide('edit-vendida-fields');
+  }
   hide('edit-upload-progress-wrap');
   $('edit-img-preview-wrap').innerHTML = m.imagen_url
     ? `<img src="${escHtml(m.imagen_url)}" style="width:100%;height:100%;object-fit:cover" />`
@@ -420,13 +439,17 @@ $('form-edit-machine').addEventListener('submit', async (e) => {
   const file            = $('edit-imagen').files[0];
   if (!modelo || !caracteristicas) return;
 
+  const isVendida = vendidasData.some(x => x.id === id);
   setBtn('edit-submit-btn', true);
   try {
     const updates = {
       modelo, caracteristicas, notas,
       actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
     };
-
+    if (isVendida) {
+      updates.cliente     = $('edit-cliente').value.trim();
+      updates.vendido_por = $('edit-vendido-por').value.trim();
+    }
     if (file) {
       show('edit-upload-progress-wrap');
       const url = await subirImagen(file, id, (pct) => {
@@ -434,7 +457,6 @@ $('form-edit-machine').addEventListener('submit', async (e) => {
       });
       updates.imagen_url = url;
     }
-
     await db.collection('machines').doc(id).update(updates);
     hide('modal-edit');
     showToast('Cambios guardados', modelo, 'success');
@@ -564,4 +586,26 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // ── Helper: label legible del estado ─────────────
 function estadoLabel(e) {
   return { pedido:'Pedido', embarcado:'Embarcado', entrega_inmediata:'Entrega Inmediata', vendida_instalada:'Vendida e Instalada' }[e] || e;
+}
+
+// ── L) ELIMINAR MÁQUINA (admin) ───────────────────
+function confirmDelete(id) {
+  if (!isAdmin) return;
+  const m = [...caminoData, ...inmediataData, ...vendidasData].find(x => x.id === id);
+  if (!m) return;
+  if (!window.confirm(`¿Eliminar "${m.modelo}"? Esta acción no se puede deshacer.`)) return;
+  deleteMachine(id, m.imagen_url);
+}
+window.confirmDelete = confirmDelete;
+
+async function deleteMachine(id, imagenUrl) {
+  try {
+    await db.collection('machines').doc(id).delete();
+    if (imagenUrl) {
+      try { await storage.ref('machines/' + id + '/main').delete(); } catch (e) { /* imagen ya eliminada */ }
+    }
+    showToast('Máquina eliminada', '', 'success');
+  } catch (err) {
+    showToast('Error al eliminar', err.message, 'error');
+  }
 }
