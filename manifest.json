@@ -5,8 +5,8 @@
   "start_url": "/Maquinas-Master/",
   "scope": "/Maquinas-Master/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#1e293b",
+  "background_color": "#ffffff",
+  "theme_color": "#cc1122",
   "orientation": "portrait-primary",
   "icons": [
     {

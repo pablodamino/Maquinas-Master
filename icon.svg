@@ -1,35 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1a1a1a"/>
-      <stop offset="100%" stop-color="#000000"/>
-    </linearGradient>
-  </defs>
 
-  <!-- Fondo negro con bordes redondeados -->
-  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <!-- Fondo blanco con borde sutil — mismo estilo que el logo real -->
+  <rect width="512" height="512" rx="80" fill="#ffffff"/>
+  <rect width="512" height="512" rx="80" fill="none" stroke="#cccccc" stroke-width="10"/>
 
-  <!-- Línea roja superior decorativa -->
-  <rect x="60" y="52" width="392" height="8" rx="4" fill="#cc1122"/>
+  <!-- Ala izquierda negra -->
+  <polygon points="42,44 232,44 250,400 42,400" fill="#111111"/>
 
-  <!-- M roja bold estilizada (como el logo) -->
-  <!-- Trazo izquierdo del M -->
-  <path d="M72 380 L72 160 L256 290 L440 160 L440 380"
-        stroke="#cc1122" stroke-width="52" fill="none"
-        stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- Ala derecha negra (espejo) -->
+  <polygon points="470,44 280,44 262,400 470,400" fill="#111111"/>
 
-  <!-- Relleno blanco interior del M para dar profundidad -->
-  <path d="M90 370 L90 192 L256 310 L422 192 L422 370"
-        stroke="#000" stroke-width="16" fill="none"
-        stroke-linejoin="miter"/>
+  <!-- Haz laser rojo — glow exterior suave -->
+  <rect x="243" y="26" width="26" height="360" rx="13" fill="#cc1122" opacity="0.22"/>
+  <!-- Haz laser rojo — núcleo -->
+  <rect x="249" y="26" width="14" height="360" rx="7" fill="#cc1122"/>
 
-  <!-- Línea roja inferior -->
-  <rect x="60" y="420" width="392" height="8" rx="4" fill="#cc1122"/>
+  <!-- Estrella / destello en punto de impacto -->
+  <!-- Estrella de 4 puntas -->
+  <g transform="translate(256,408)">
+    <path d="M0,-42 L11,-11 L42,0 L11,11 L0,42 L-11,11 L-42,0 L-11,-11 Z" fill="#cc1122"/>
+    <!-- Destellos diagonales cortos -->
+    <line x1="-30" y1="-30" x2="-20" y2="-20" stroke="#cc1122" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    <line x1="30"  y1="-30" x2="20"  y2="-20" stroke="#cc1122" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    <line x1="-30" y1="30"  x2="-20" y2="20"  stroke="#cc1122" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    <line x1="30"  y1="30"  x2="20"  y2="20"  stroke="#cc1122" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    <!-- Centro brillante -->
+    <circle r="14" fill="#cc1122"/>
+    <circle r="7"  fill="#ff4455"/>
+  </g>
 
-  <!-- Texto STOCK en blanco -->
-  <text x="256" y="484"
-        font-family="Arial Black, Impact, sans-serif"
-        font-size="48" font-weight="900"
-        fill="white" text-anchor="middle"
-        letter-spacing="12">STOCK</text>
 </svg>
