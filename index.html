@@ -3,14 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d2137" />
+  <meta name="theme-color" content="#08080a" id="meta-theme" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Stock Master" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="description" content="Control de stock de maquinaria — Pantógrafos Master" />
+  <meta name="description" content="Control de stock de maquinaria en tiempo real — Pantógrafos Master" />
   <title>Stock — Pantógrafos Master</title>
+
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css?v=2" />
+
+  <!-- Tema aplicado antes del primer pintado, para que no haya destello blanco. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('pm-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.style.background = dark ? '#08080a' : '#f2f2f4';
+        var m = document.querySelector('#meta-theme');
+        if (m) m.setAttribute('content', dark ? '#08080a' : '#f2f2f4');
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Firebase SDK (compat — sin build tools) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -21,141 +39,176 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════
-     LOGIN
-══════════════════════════════════════════════ -->
+<!-- ═══ Íconos ═══════════════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m8 7 4-4 4 4"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><path d="M12 17v5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═══ Splash ═══════════════════════════════════════════════ -->
+<div id="boot">
+  <div class="boot-mark">
+    <div class="boot-gear">⚙</div>
+    <div class="boot-name">Pantógrafos Master</div>
+  </div>
+</div>
+
+<!-- ═══ Login ════════════════════════════════════════════════ -->
 <div id="login-screen" class="hidden">
   <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">⚙</div>
-      <div class="login-logo-text">
+    <div class="login-mark">
+      <div class="login-gear">⚙</div>
+      <div>
         <h1>Pantógrafos Master</h1>
         <p>Control de Stock</p>
       </div>
     </div>
-    <p class="login-subtitle">Ingresá con tu cuenta de vendedor</p>
-    <form id="login-form" autocomplete="on">
-      <div class="form-group">
+    <p class="login-lead">Ingresá con tu cuenta de vendedor.</p>
+
+    <form id="login-form" autocomplete="on" novalidate>
+      <div class="field">
         <label for="login-email">Email</label>
-        <input type="email" id="login-email" name="email"
+        <input type="email" id="login-email" name="email" inputmode="email"
                placeholder="usuario@pantografosmaster.com"
-               autocomplete="email" required />
+               autocomplete="email" autocapitalize="off" spellcheck="false" required />
       </div>
-      <div class="form-group">
+      <div class="field">
         <label for="login-password">Contraseña</label>
         <input type="password" id="login-password" name="password"
-               placeholder="••••••••"
-               autocomplete="current-password" required />
+               placeholder="••••••••" autocomplete="current-password" required />
       </div>
-      <div id="login-error" class="error-msg hidden"></div>
-      <button type="submit" class="btn btn-primary btn-full mt-2" id="login-btn">
-        Ingresar
-      </button>
+      <div id="login-error" class="err hidden"></div>
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="login-btn">Ingresar</button>
     </form>
+
+    <p class="login-foot" id="login-foot">Stock en tiempo real · v2</p>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     APP
-══════════════════════════════════════════════ -->
+<!-- ═══ App ══════════════════════════════════════════════════ -->
 <div id="app" class="hidden">
 
-  <!-- Header -->
   <header id="app-header">
-    <div class="header-logo">
-      <div class="header-logo-icon">⚙</div>
-      <div class="header-logo-text">
+    <div class="hdr-mark">
+      <div class="hdr-gear">⚙</div>
+      <div class="hdr-name">
         <strong>Pantógrafos Master</strong>
-        <span>Control de Stock</span>
+        <div class="hdr-live">
+          <span class="live-dot" id="live-dot"></span>
+          <span id="live-label">En vivo</span>
+        </div>
       </div>
     </div>
-    <div class="header-user">
-      <div class="header-avatar" id="header-avatar">?</div>
-      <span id="header-user-name"></span>
-      <button id="bell-btn" title="Notificaciones" aria-label="Notificaciones">
-        🔔
-        <span id="notif-badge" class="notif-badge hidden">0</span>
+    <div class="hdr-actions">
+      <button class="icon-btn" id="btn-search" title="Buscar" aria-label="Buscar">
+        <svg><use href="#i-search"/></svg>
       </button>
-      <button id="logout-btn">Salir</button>
+      <button class="icon-btn" id="btn-bell" title="Novedades" aria-label="Novedades">
+        <svg><use href="#i-bell"/></svg>
+        <span id="notif-badge" class="hidden">0</span>
+      </button>
+      <button class="avatar" id="btn-avatar" title="Tu cuenta" aria-label="Tu cuenta" aria-haspopup="menu">?</button>
     </div>
   </header>
 
-  <!-- Debug bar — se oculta automaticamente cuando todo está bien -->
-  <div id="debug-bar" class="hidden" style="background:#fef3c7;border-bottom:1px solid #f59e0b;padding:.5rem 1rem;font-size:.8rem;color:#92400e;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-    <strong>⚠ Debug:</strong>
-    <span id="debug-uid"></span>
-    <span id="debug-rol"></span>
-    <span id="debug-admin"></span>
-    <a id="debug-fix-link" href="https://console.firebase.google.com/project/maquinas-master/firestore/databases/-default-/data/~2Fvendors" target="_blank" style="color:#b45309;font-weight:600;">→ Abrir Firestore vendors</a>
-  </div>
+  <section id="hero">
+    <div class="hero-grid">
+      <button class="stat" data-k="camino" type="button">
+        <span class="stat-dot"></span>
+        <span class="stat-n num" id="stat-camino">0</span>
+        <span class="stat-l">En camino</span>
+      </button>
+      <button class="stat" data-k="inmediata" type="button">
+        <span class="stat-dot"></span>
+        <span class="stat-n num" id="stat-inmediata">0</span>
+        <span class="stat-l">Disponibles</span>
+      </button>
+      <button class="stat" data-k="vendidas" type="button">
+        <span class="stat-dot"></span>
+        <span class="stat-n num" id="stat-vendidas">0</span>
+        <span class="stat-l">Vendidas</span>
+      </button>
+    </div>
+    <div class="hero-mine hidden" id="hero-mine"></div>
+  </section>
 
-  <!-- Stats bar -->
-  <div id="stats-bar">
-    <div class="stat-pill">
-      <div class="stat-dot" style="background:#fb923c"></div>
-      <span class="stat-num" id="stat-camino">0</span>
-      <span>en camino</span>
-    </div>
-    <div class="stat-pill">
-      <div class="stat-dot" style="background:#4ade80"></div>
-      <span class="stat-num" id="stat-inmediata">0</span>
-      <span>disponibles</span>
-    </div>
-    <div class="stat-pill">
-      <div class="stat-dot" style="background:#a78bfa"></div>
-      <span class="stat-num" id="stat-vendidas">0</span>
-      <span>vendidas</span>
-    </div>
-  </div>
-
-  <!-- Contenido -->
-  <main id="main-content">
-
-    <!-- Maquinas en Camino -->
-    <div class="section-header">
-      <div class="section-stripe" style="background:#fb923c"></div>
-      <span class="section-title">Maquinas en Camino</span>
-      <span id="count-camino" class="section-count">0</span>
-    </div>
-    <div id="grid-camino" class="card-grid">
-      <div class="empty-state">Cargando...</div>
-    </div>
-
-    <!-- Entrega Inmediata -->
-    <div class="section-header">
-      <div class="section-stripe" style="background:#4ade80"></div>
-      <span class="section-title">Entrega Inmediata</span>
-      <span id="count-inmediata" class="section-count">0</span>
-    </div>
-    <div id="grid-inmediata" class="card-grid">
-      <div class="empty-state">Sin equipos disponibles para entrega inmediata</div>
-    </div>
-
-    <!-- Vendidas -->
-    <div id="section-vendidas">
-      <div class="section-header" id="toggle-vendidas-header">
-        <div class="section-stripe" style="background:#a78bfa"></div>
-        <span class="section-title">Vendidas e Instaladas</span>
-        <span id="count-vendidas" class="section-count">0</span>
-        <span id="toggle-vendidas-icon">▼</span>
+  <div id="toolbar">
+    <div class="toolbar-inner">
+      <div class="search-wrap">
+        <svg class="s-icon"><use href="#i-search"/></svg>
+        <input type="search" id="search" placeholder="Buscar modelo, cliente, vendedor…"
+               autocomplete="off" autocapitalize="off" spellcheck="false"
+               aria-label="Buscar máquinas" />
+        <button id="search-clear" class="hidden" aria-label="Limpiar búsqueda">
+          <svg style="width:15px;height:15px"><use href="#i-x"/></svg>
+        </button>
       </div>
-      <div id="tabla-vendidas-wrapper" class="hidden">
-        <div class="table-wrapper">
+      <div class="chips" id="chips" role="group" aria-label="Filtros">
+        <button class="chip is-on" data-f="todas">Todas</button>
+        <button class="chip" data-f="camino"><span class="c-dot"></span>En camino</button>
+        <button class="chip" data-f="entrega_inmediata"><span class="c-dot"></span>Disponibles</button>
+        <button class="chip" data-f="vendida_instalada"><span class="c-dot"></span>Vendidas</button>
+        <button class="chip" data-f="mias"><span class="c-dot"></span>Mis ventas</button>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+
+    <div class="sec" id="sec-camino">
+      <div class="sec-head">
+        <span class="sec-bar"></span>
+        <span class="sec-title">Máquinas en camino</span>
+        <span class="sec-count num" id="count-camino">0</span>
+      </div>
+      <div id="grid-camino" class="grid"></div>
+    </div>
+
+    <div class="sec" id="sec-inmediata">
+      <div class="sec-head">
+        <span class="sec-bar"></span>
+        <span class="sec-title">Entrega inmediata</span>
+        <span class="sec-count num" id="count-inmediata">0</span>
+      </div>
+      <div id="grid-inmediata" class="grid"></div>
+    </div>
+
+    <div class="sec" id="sec-vendidas">
+      <button class="sec-head" id="toggle-vendidas" aria-expanded="false" aria-controls="vendidas-wrap">
+        <span class="sec-bar"></span>
+        <span class="sec-title">Vendidas e instaladas</span>
+        <span class="sec-count num" id="count-vendidas">0</span>
+        <span class="sec-spacer"></span>
+        <svg class="sec-caret" style="width:14px;height:14px"><use href="#i-down"/></svg>
+      </button>
+      <div id="vendidas-wrap" class="hidden">
+        <div class="table-scroll">
           <table>
             <thead>
               <tr>
-                <th></th>
-                <th>Modelo</th>
-                <th>Cliente</th>
-                <th>Vendedor</th>
-                <th>Fecha</th>
-                <th>Características</th>
-                <th></th>
+                <th></th><th>Modelo</th><th>Cliente</th><th>Vendedor</th>
+                <th>Fecha</th><th>Detalle</th><th></th>
               </tr>
             </thead>
-            <tbody id="tabla-vendidas-body">
-              <tr><td colspan="7" class="text-center text-muted" style="padding:2rem">Sin máquinas vendidas aún</td></tr>
-            </tbody>
+            <tbody id="tabla-vendidas"></tbody>
           </table>
         </div>
       </div>
@@ -163,173 +216,302 @@
 
   </main>
 
-  <!-- FAB solo admin -->
-  <button id="fab-add" class="hidden" title="Agregar máquina" aria-label="Agregar nueva máquina">+</button>
+  <button id="fab" class="hidden" aria-label="Agregar máquina">
+    <svg><use href="#i-plus"/></svg>
+    <span class="fab-txt">Agregar</span>
+  </button>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     MODAL: AGREGAR MÁQUINA (admin)
-══════════════════════════════════════════════ -->
-<div id="modal-add" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2 class="modal-title">Nueva Máquina</h2>
-      <button class="modal-close" data-close-modal="modal-add">×</button>
+<!-- ═══ Menú de usuario ══════════════════════════════════════ -->
+<div id="user-menu" class="hidden" role="menu">
+  <div class="menu-head">
+    <strong id="um-name">—</strong>
+    <span id="um-email">—</span>
+    <span class="menu-role" id="um-role">vendedor</span>
+  </div>
+  <button class="menu-item" id="um-theme" role="menuitem">
+    <span class="mi-icon"><svg style="width:16px;height:16px;vertical-align:-3px"><use href="#i-moon" id="um-theme-icon"/></svg></span>
+    <span>Tema</span>
+    <span class="mi-val" id="um-theme-val">Sistema</span>
+  </button>
+  <button class="menu-item" id="um-notif" role="menuitem">
+    <span class="mi-icon"><svg style="width:16px;height:16px;vertical-align:-3px"><use href="#i-bell"/></svg></span>
+    <span>Notificaciones</span>
+    <span class="mi-val" id="um-notif-val">—</span>
+  </button>
+  <button class="menu-item" id="um-install" role="menuitem">
+    <span class="mi-icon"><svg style="width:16px;height:16px;vertical-align:-3px"><use href="#i-download"/></svg></span>
+    <span>Instalar en el celular</span>
+  </button>
+  <div class="menu-sep"></div>
+  <button class="menu-item is-danger" id="um-logout" role="menuitem">
+    <span class="mi-icon"><svg style="width:16px;height:16px;vertical-align:-3px"><use href="#i-logout"/></svg></span>
+    <span>Cerrar sesión</span>
+  </button>
+</div>
+
+<!-- ═══ Panel de novedades ═══════════════════════════════════ -->
+<div id="notif-panel" class="hidden" role="dialog" aria-modal="true" aria-label="Novedades">
+  <div class="np-head">
+    <h2>Novedades</h2>
+    <button class="icon-btn" id="np-mark" title="Marcar todo como leído" aria-label="Marcar todo como leído">
+      <svg><use href="#i-check"/></svg>
+    </button>
+    <button class="icon-btn" id="np-close" aria-label="Cerrar">
+      <svg><use href="#i-x"/></svg>
+    </button>
+  </div>
+  <div class="np-body">
+    <div id="perm-box"></div>
+    <div id="np-list"></div>
+  </div>
+</div>
+
+<!-- ═══ Hoja: agregar máquina ════════════════════════════════ -->
+<div id="sheet-add" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-head">
+      <div style="flex:1">
+        <h2>Nueva máquina</h2>
+        <div class="sh-sub">Se agrega en estado <strong>Pedido</strong></div>
+      </div>
+      <button class="icon-btn" data-close="sheet-add" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
     </div>
+    <form id="form-add" style="display:contents">
+      <div class="sheet-body">
+        <button type="button" class="btn btn-ghost btn-full btn-lg" id="add-voice" style="margin-bottom:1.15rem">
+          <svg><use href="#i-mic"/></svg> Dictar por voz
+        </button>
 
-    <form id="form-add-machine">
-      <div class="form-group">
-        <label for="add-modelo">Modelo *</label>
-        <input type="text" id="add-modelo" placeholder="Ej: Pantógrafo CNC R2, Láser 1500W..." required />
-      </div>
+        <div class="field">
+          <label for="add-modelo">Modelo *</label>
+          <input type="text" id="add-modelo" placeholder="Ej: Compresor 500 litros trifásico" required />
+          <div id="add-suggest"></div>
+        </div>
 
-      <div class="form-group">
-        <label for="add-caracteristicas">Características *</label>
-        <textarea id="add-caracteristicas" placeholder="Potencia, mesa de trabajo, software incluido, accesorios..." required></textarea>
-      </div>
+        <div class="field">
+          <label for="add-caracteristicas">Características *</label>
+          <textarea id="add-caracteristicas" placeholder="Potencia, mesa de trabajo, software incluido, accesorios…" required></textarea>
+        </div>
 
-      <div class="form-group">
-        <label for="add-imagen">Imagen del equipo</label>
-        <div class="img-preview-wrap" id="add-img-preview-wrap">
-          <div class="img-preview-placeholder">
-            <span class="icon">📷</span>
-            <span>Sin imagen seleccionada</span>
+        <div class="field">
+          <div class="label-row">
+            <label>Foto del equipo</label>
+            <span class="hint" id="add-photo-note" style="margin:0"></span>
+          </div>
+          <div class="photo-pick" id="add-photo">
+            <div class="photo-empty">
+              <span class="pe-glyph">📷</span>
+              <span>Sin foto</span>
+            </div>
+          </div>
+          <div class="photo-tools">
+            <button type="button" class="btn btn-outline btn-sm" id="add-photo-cam">
+              <svg><use href="#i-camera"/></svg> Cámara
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" id="add-photo-lib">
+              <svg><use href="#i-image"/></svg> Galería
+            </button>
+          </div>
+          <input type="file" id="add-file-cam" accept="image/*" capture="environment" />
+          <input type="file" id="add-file-lib" accept="image/*" />
+          <div class="progress hidden" id="add-progress"><i></i></div>
+        </div>
+
+        <div class="field">
+          <label>Estado inicial</label>
+          <div class="chips" id="add-estado" role="group" aria-label="Estado inicial">
+            <button type="button" class="chip is-on" data-e="pedido"><span class="c-dot"></span>Pedido</button>
+            <button type="button" class="chip" data-e="embarcado"><span class="c-dot"></span>Embarcada</button>
+            <button type="button" class="chip" data-e="entrega_inmediata"><span class="c-dot"></span>Disponible</button>
           </div>
         </div>
-        <input type="file" id="add-imagen" accept="image/*" />
-        <div class="progress-bar-wrap hidden" id="add-upload-progress-wrap">
-          <div class="progress-bar" id="add-upload-progress" style="width:0%"></div>
+
+        <div class="field">
+          <label for="add-fecha">Fecha de confirmación de OC *</label>
+          <input type="date" id="add-fecha" required />
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="add-fecha-oc">Fecha confirmación OC *</label>
-        <input type="date" id="add-fecha-oc" required />
-      </div>
+        <div class="field">
+          <label for="add-notas">Notas internas</label>
+          <textarea id="add-notas" placeholder="Observaciones logísticas, proveedor, etc."></textarea>
+        </div>
 
-      <div class="form-group">
-        <label for="add-notas">Notas internas (opcional)</label>
-        <textarea id="add-notas" placeholder="Observaciones logísticas, proveedor, etc."></textarea>
+        <div id="add-error" class="err hidden"></div>
       </div>
-
-      <div id="add-error" class="error-msg hidden"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline" data-close-modal="modal-add">Cancelar</button>
-        <button type="submit" class="btn btn-navy" id="add-submit-btn">Agregar Máquina</button>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-outline" data-close="sheet-add">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="add-submit">Agregar máquina</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     MODAL: EDITAR MÁQUINA (admin)
-══════════════════════════════════════════════ -->
-<div id="modal-edit" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2 class="modal-title">Editar Máquina</h2>
-      <button class="modal-close" data-close-modal="modal-edit">×</button>
+<!-- ═══ Hoja: editar máquina ═════════════════════════════════ -->
+<div id="sheet-edit" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-head">
+      <h2 style="flex:1">Editar máquina</h2>
+      <button class="icon-btn" data-close="sheet-edit" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
     </div>
+    <form id="form-edit" style="display:contents">
+      <div class="sheet-body">
+        <input type="hidden" id="edit-id" />
 
-    <form id="form-edit-machine">
-      <input type="hidden" id="edit-machine-id" />
+        <div class="field">
+          <label for="edit-modelo">Modelo *</label>
+          <input type="text" id="edit-modelo" required />
+        </div>
 
-      <div class="form-group">
-        <label for="edit-modelo">Modelo *</label>
-        <input type="text" id="edit-modelo" required />
-      </div>
+        <div class="field">
+          <label for="edit-caracteristicas">Características *</label>
+          <textarea id="edit-caracteristicas" required></textarea>
+        </div>
 
-      <div class="form-group">
-        <label for="edit-caracteristicas">Características *</label>
-        <textarea id="edit-caracteristicas" required></textarea>
-      </div>
+        <div class="field">
+          <label>Foto del equipo</label>
+          <div class="photo-pick" id="edit-photo">
+            <div class="photo-empty"><span class="pe-glyph">📷</span><span>Sin foto</span></div>
+          </div>
+          <div class="photo-tools">
+            <button type="button" class="btn btn-outline btn-sm" id="edit-photo-cam">
+              <svg><use href="#i-camera"/></svg> Cámara
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" id="edit-photo-lib">
+              <svg><use href="#i-image"/></svg> Galería
+            </button>
+          </div>
+          <input type="file" id="edit-file-cam" accept="image/*" capture="environment" />
+          <input type="file" id="edit-file-lib" accept="image/*" />
+          <div class="progress hidden" id="edit-progress"><i></i></div>
+        </div>
 
-      <div class="form-group">
-        <label>Imagen del equipo</label>
-        <div class="img-preview-wrap" id="edit-img-preview-wrap">
-          <div class="img-preview-placeholder">
-            <span class="icon">📷</span>
-            <span>Sin imagen</span>
+        <div class="field">
+          <label for="edit-notas">Notas internas</label>
+          <textarea id="edit-notas"></textarea>
+        </div>
+
+        <div id="edit-sold-fields" class="hidden">
+          <div class="field">
+            <label for="edit-cliente">Cliente / Empresa</label>
+            <input type="text" id="edit-cliente" placeholder="Nombre del cliente o empresa" />
+          </div>
+          <div class="field">
+            <label for="edit-vendedor">Vendido por</label>
+            <input type="text" id="edit-vendedor" placeholder="Nombre del vendedor" />
           </div>
         </div>
-        <input type="file" id="edit-imagen" accept="image/*" />
-        <div class="progress-bar-wrap hidden" id="edit-upload-progress-wrap">
-          <div class="progress-bar" id="edit-upload-progress" style="width:0%"></div>
-        </div>
-      </div>
 
-      <div class="form-group">
-        <label for="edit-notas">Notas internas</label>
-        <textarea id="edit-notas"></textarea>
+        <div id="edit-error" class="err hidden"></div>
       </div>
-
-      <div id="edit-vendida-fields" class="hidden">
-        <div class="form-group">
-          <label for="edit-cliente">Cliente / Empresa</label>
-          <input type="text" id="edit-cliente" placeholder="Nombre del cliente o empresa" />
-        </div>
-        <div class="form-group">
-          <label for="edit-vendido-por">Vendido por</label>
-          <input type="text" id="edit-vendido-por" placeholder="Nombre del vendedor" />
-        </div>
-      </div>
-
-      <div id="edit-error" class="error-msg hidden"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline" data-close-modal="modal-edit">Cancelar</button>
-        <button type="submit" class="btn btn-navy" id="edit-submit-btn">Guardar Cambios</button>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-outline" data-close="sheet-edit">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="edit-submit">Guardar cambios</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     MODAL: CAMBIAR ESTADO (admin)
-══════════════════════════════════════════════ -->
-<div id="modal-state" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2 class="modal-title">Estado Logístico</h2>
-      <button class="modal-close" data-close-modal="modal-state">×</button>
+<!-- ═══ Hoja: estado logístico ═══════════════════════════════ -->
+<div id="sheet-state" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-head">
+      <h2 style="flex:1">Estado logístico</h2>
+      <button class="icon-btn" data-close="sheet-state" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
     </div>
-    <p id="modal-state-info" class="text-muted" style="font-size:.875rem;margin-bottom:1rem"></p>
-    <div id="state-options" style="display:flex;flex-direction:column;gap:.625rem"></div>
-    <div id="state-error" class="error-msg hidden"></div>
+    <div class="sheet-body">
+      <div id="state-sum"></div>
+      <div class="state-list" id="state-list"></div>
+      <div id="state-error" class="err hidden" style="margin-top:1rem"></div>
+    </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════
-     MODAL: REGISTRAR VENTA
-══════════════════════════════════════════════ -->
-<div id="modal-sell" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2 class="modal-title" id="modal-sell-title">Registrar Venta</h2>
-      <button class="modal-close" data-close-modal="modal-sell">×</button>
+<!-- ═══ Hoja: registrar venta ════════════════════════════════ -->
+<div id="sheet-sell" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-head">
+      <h2 style="flex:1" id="sell-title">Registrar venta</h2>
+      <button class="icon-btn" data-close="sheet-sell" aria-label="Cerrar"><svg><use href="#i-x"/></svg></button>
     </div>
-    <p id="modal-sell-info" class="text-muted" style="font-size:.875rem;margin-bottom:1rem"></p>
-    <form id="form-sell">
-      <div class="form-group">
-        <label for="sell-cliente">Cliente / Empresa *</label>
-        <input type="text" id="sell-cliente" placeholder="Nombre del cliente o empresa" required />
+    <form id="form-sell" style="display:contents">
+      <div class="sheet-body">
+        <div id="sell-sum"></div>
+        <div class="field">
+          <label for="sell-cliente">Cliente / Empresa *</label>
+          <input type="text" id="sell-cliente" placeholder="Nombre del cliente o empresa" required />
+        </div>
+        <div class="field">
+          <label for="sell-notas">Notas de la venta</label>
+          <textarea id="sell-notas" placeholder="Condiciones, acuerdos, número de serie, observaciones…"></textarea>
+        </div>
+        <div id="sell-error" class="err hidden"></div>
       </div>
-      <div class="form-group">
-        <label for="sell-notas">Notas de la venta (opcional)</label>
-        <textarea id="sell-notas" placeholder="Condiciones, acuerdos, número de serie, observaciones..."></textarea>
-      </div>
-      <div id="sell-error" class="error-msg hidden"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline" data-close-modal="modal-sell">Cancelar</button>
-        <button type="submit" class="btn btn-success" id="sell-submit-btn">Confirmar Venta</button>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-outline" data-close="sheet-sell">Cancelar</button>
+        <button type="submit" class="btn btn-success" id="sell-submit">Confirmar venta</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Toast container -->
-<div id="toast-container" aria-live="polite"></div>
+<!-- ═══ Hoja: confirmación ═══════════════════════════════════ -->
+<div id="sheet-confirm" class="overlay hidden" role="dialog" aria-modal="true">
+  <div class="sheet" style="max-width:400px">
+    <div class="sheet-grip"></div>
+    <div class="confirm-body">
+      <div class="confirm-glyph" id="confirm-glyph">⚠</div>
+      <h3 id="confirm-title">¿Confirmás?</h3>
+      <p id="confirm-text"></p>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn btn-outline" data-close="sheet-confirm">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
-<script src="firebase-config.js?v=1.8"></script>
-<script src="app.js?v=1.8"></script>
+<!-- ═══ Dictado por voz ══════════════════════════════════════ -->
+<div id="voice-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Dictado por voz">
+  <div class="mic-wrap">
+    <span class="mic-ring"></span><span class="mic-ring"></span><span class="mic-ring"></span>
+    <div class="mic-core"><svg style="width:38px;height:38px;color:#fff"><use href="#i-mic"/></svg></div>
+  </div>
+  <div id="voice-status">Escuchando…</div>
+  <div id="voice-text"></div>
+  <p class="voice-tip">
+    Decí el modelo, las características y el estado.<br>
+    Por ejemplo: <b>«compresor 500 litros trifásico, ya llegó»</b>
+  </p>
+  <div class="voice-acts">
+    <button class="btn btn-outline" id="voice-cancel" style="border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.7)">Cancelar</button>
+    <button class="btn btn-primary" id="voice-done">Listo</button>
+  </div>
+</div>
+
+<!-- ═══ Invitación a instalar ════════════════════════════════ -->
+<div id="install-cta" class="hidden">
+  <div class="ic-gear">⚙</div>
+  <div class="ic-txt">
+    <strong>Instalá la app</strong>
+    <span>Abre más rápido y recibe avisos</span>
+  </div>
+  <button class="btn btn-primary btn-sm" id="install-go">Instalar</button>
+  <button class="icon-btn" id="install-no" aria-label="Ahora no"><svg><use href="#i-x"/></svg></button>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script src="firebase-config.js?v=2"></script>
+<script src="catalog.js?v=2"></script>
+<script src="share.js?v=2"></script>
+<script src="voice.js?v=2"></script>
+<script src="ui.js?v=2"></script>
+<script src="notifications.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
