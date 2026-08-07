@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -6,84 +7,106 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function vendorDoc() {
-      return get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data;
+    // OJO: si el documento del vendedor no existe, get() falla y con él toda la
+    // regla. Por eso el alta del propio perfil NO puede depender de estas
+    // funciones, y por eso `rol()` comprueba exists() antes de leer.
+    function rol() {
+      return exists(/databases/$(database)/documents/vendors/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.get('rol', '').lower()
+        : '';
     }
 
-    function isAdmin() {
-      return isAuth() && vendorDoc().rol == 'admin';
-    }
-
-    function isVendor() {
-      return isAuth() && vendorDoc().rol in ['admin', 'vendedor'];
-    }
+    // Tolerante a mayúsculas: "Admin" y "admin" valen igual.
+    function isAdmin()  { return isAuth() && rol() == 'admin'; }
+    function isVendor() { return isAuth() && rol() in ['admin', 'vendedor']; }
 
     // ── Máquinas ──────────────────────────────────────────────
     match /machines/{machineId} {
-      // Cualquier vendedor autenticado puede leer todo el inventario
+
       allow read: if isVendor();
 
-      // Solo admin puede crear — y solo con estado inicial 'pedido'
+      // El alta admite los tres estados en curso: con el dictado por voz se
+      // puede cargar una máquina que ya llegó, sin pasar por todo el circuito.
       allow create: if isAdmin()
-        && request.resource.data.estado == 'pedido'
+        && request.resource.data.estado in ['pedido', 'embarcado', 'entrega_inmediata']
         && request.resource.data.keys().hasAll(['modelo', 'estado', 'fecha_oc', 'creado_por', 'caracteristicas']);
 
-      // Transiciones de estado controladas por rol
       allow update: if isAuth() && (
-        // Admin: editar metadata sin cambiar el estado (modelo, caracteristicas, notas, imagen, etc.)
+
+        // Admin sobre una máquina en curso: puede editar todo, incluido corregir
+        // el estado si se equivocó de botón.
+        (isAdmin() && resource.data.estado != 'vendida_instalada')
+
+        ||
+        // Admin sobre una máquina ya entregada: solo corregir datos, nunca
+        // sacarla del histórico.
         (isAdmin() && request.resource.data.estado == resource.data.estado)
+
         ||
-        // Admin: pedido → embarcado
-        (isAdmin()
-          && resource.data.estado == 'pedido'
-          && request.resource.data.estado == 'embarcado')
-        ||
-        // Admin: embarcado → entrega_inmediata
-        (isAdmin()
-          && resource.data.estado == 'embarcado'
-          && request.resource.data.estado == 'entrega_inmediata')
-        ||
-        // Admin: entrega_inmediata → vendida_instalada (instalación final)
-        (isAdmin()
-          && resource.data.estado == 'entrega_inmediata'
-          && request.resource.data.estado == 'vendida_instalada')
-        ||
-        // Cualquier vendedor puede registrar una venta sin cambiar el estado logístico
+        // Cualquier vendedor puede reservar o liberar una venta, sin tocar el
+        // estado logístico ni ningún otro campo.
         (isVendor()
           && resource.data.estado != 'vendida_instalada'
           && request.resource.data.estado == resource.data.estado
-          && request.resource.data.keys().hasAll(['cliente', 'vendido_por', 'fecha_venta']))
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['cliente', 'vendido_por', 'fecha_venta', 'notas', 'actualizado_en']))
       );
 
-      // Solo admin puede eliminar máquinas
       allow delete: if isAdmin();
     }
 
     // ── Vendedores ────────────────────────────────────────────
     match /vendors/{vendorId} {
-      // Cualquier usuario autenticado puede leer perfiles de vendedores
-      // (son compañeros de equipo, no hay datos sensibles que ocultar entre sí)
+
       allow read: if isAuth();
 
-      // Admin puede crear perfiles de vendedores
+      // Alta del propio perfil. Sin esto, un usuario nuevo nunca llegaba a
+      // tener documento, y por lo tanto su token de notificaciones nunca se
+      // podía guardar: era la causa raíz de que el push no llegara a nadie.
+      allow create: if isAuth()
+        && request.auth.uid == vendorId
+        && request.resource.data.rol == 'vendedor';
+
       allow create: if isAdmin();
 
-      // Vendedor solo puede actualizar sus propios tokens FCM
-      allow update: if isAuth() && request.auth.uid == vendorId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcm_tokens']);
+      // Cada uno administra solo sus tokens y su marca de lectura.
+      // El rol queda fuera: nadie puede promoverse a admin.
+      allow update: if isAuth()
+        && request.auth.uid == vendorId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fcm_tokens', 'ultima_lectura', 'token_actualizado']);
 
-      // Admin puede actualizar cualquier campo del perfil
       allow update: if isAdmin();
 
       allow delete: if false;
     }
 
-    // ── Notificaciones ────────────────────────────────────────
-    match /notifications/{notifId} {
-      // Solo lectura para vendedores autenticados
+    // ── Feed de novedades ─────────────────────────────────────
+    // Es lo que hace funcionar las notificaciones sin Cloud Functions.
+    match /activity/{actId} {
+
       allow read: if isVendor();
-      // Escritura solo desde Cloud Functions (Admin SDK bypasea estas reglas)
-      allow write: if false;
+
+      // Solo se puede escribir en nombre propio, y una vez escrito no se toca.
+      allow create: if isVendor()
+        && request.resource.data.actor_uid == request.auth.uid
+        && request.resource.data.keys().hasAll(['tipo', 'actor_uid', 'fecha']);
+
+      allow update, delete: if false;
+    }
+
+    // ── Catálogo de modelos ───────────────────────────────────
+    // Memoria de fotos y características por modelo, para la carga automática.
+    match /catalog/{modeloId} {
+      allow read: if isVendor();
+      allow create, update: if isVendor();
+      allow delete: if isAdmin();
+    }
+
+    // ── Historial de la Cloud Function (si está desplegada) ───
+    match /notifications/{notifId} {
+      allow read: if isVendor();
+      allow write: if false;   // solo el Admin SDK, que saltea estas reglas
     }
   }
 }

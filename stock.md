@@ -1,138 +1,174 @@
-# Stock de Maquinas — Pantógrafos Master
+# Stock de Máquinas — Pantógrafos Master
 
-## Qué es este proyecto
-
-App web PWA (Progressive Web App) para que los vendedores de Pantógrafos Master vean en tiempo real el inventario de maquinaria pesada y reciban notificaciones push en sus celulares Android cada vez que el stock cambia.
+App web PWA para que los vendedores vean el inventario de maquinaria en tiempo real, registren ventas y reciban avisos cuando el stock cambia.
 
 **URL:** https://pablodamino.github.io/Maquinas-Master/
 **Repo:** https://github.com/pablodamino/Maquinas-Master
 
 ---
 
-## Objetivo
-
-Eliminar el caos de información sobre qué máquinas hay disponibles. Antes, un vendedor podía ofrecer una máquina que ya estaba vendida o no saber que llegó una nueva. Ahora todos ven lo mismo en tiempo real y se notifican automáticamente.
-
----
-
 ## Ciclo de vida de una máquina
 
 ```
-[Admin agrega] → PEDIDO → EMBARCADO → ENTREGA INMEDIATA → VENDIDA E INSTALADA
+[Alta] → PEDIDO → EMBARCADO → ENTREGA INMEDIATA → VENDIDA E INSTALADA
 ```
 
-| Estado | Descripción | Contador |
-|--------|-------------|----------|
-| `pedido` | OC confirmada, esperando embarque | Días desde la OC |
-| `embarcado` | En tránsito hacia la planta | Días desde la OC |
-| `entrega_inmediata` | En planta, lista para vender | — |
-| `vendida_instalada` | Vendida e instalada en cliente | — (historial) |
+| Estado | Qué significa | Quién lo mueve |
+|---|---|---|
+| `pedido` | OC confirmada, esperando embarque | — |
+| `embarcado` | En tránsito hacia la planta | admin |
+| `entrega_inmediata` | En planta, lista para vender | admin |
+| `vendida_instalada` | Entregada e instalada. Histórico. | admin |
 
-- **Cualquier vendedor** puede registrar una venta en estado `pedido`, `embarcado` o `entrega_inmediata`
-- **Solo admin** puede mover entre estados logísticos (pedido → embarcado → entrega_inmediata)
-- Una vez `vendida_instalada`, la máquina es histórico: no se puede modificar
-
----
-
-## Datos de cada máquina
-
-- `modelo` — nombre/modelo del equipo (texto libre)
-- `caracteristicas` — descripción técnica del equipo
-- `imagen_url` — foto del equipo (Firebase Storage)
-- `estado` — ver ciclo de vida
-- `fecha_oc` — fecha de confirmación de la orden de compra
-- `fecha_embarque` / `fecha_llegada` / `fecha_venta` — timestamps de cada transición
-- `cliente` / `vendido_por` / `notas` — datos al momento de la venta
+**Reservar una venta** es independiente del estado logístico: cualquier vendedor puede
+poner `cliente` en una máquina en cualquier estado en curso, y también liberarla.
+Solo el admin cierra el circuito pasándola a `vendida_instalada`.
 
 ---
 
-## Roles
+## Notificaciones — tres capas
 
-| Rol | Puede hacer |
-|-----|-------------|
-| `admin` | Agregar máquinas, cambiar estado logístico, editar datos, registrar ventas |
-| `vendedor` | Ver stock, registrar ventas |
+Están diseñadas para funcionar **sin backend**. Las dos primeras capas no necesitan
+Cloud Functions, ni plan Blaze, ni FCM.
 
----
+| Capa | Qué hace | Requiere |
+|---|---|---|
+| **1 · Bandeja** | Feed en tiempo real en la campana 🔔, con badge de no leídas. | Nada. Solo Firestore. |
+| **2 · Aviso del sistema** | Notificación del celular cuando la app está abierta pero no en foco. | Permiso de notificaciones. |
+| **3 · Push con la app cerrada** | Aviso con el celular bloqueado y la app cerrada. | FCM + Cloud Function (plan Blaze). |
 
-## Stack técnico
+Si la capa 3 no está desplegada, la app **no la promete**: el panel de la campana
+muestra el estado real del permiso y qué se puede esperar.
 
-| Capa | Tecnología |
-|------|-----------|
-| Hosting | GitHub Pages (gratis, 24/7) |
-| Base de datos | Firebase Firestore (tiempo real) |
-| Autenticación | Firebase Auth (email/password) |
-| Push notifications | Firebase FCM + Service Worker |
-| Notif. trigger | Firebase Cloud Functions (Blaze, ~$0/mes) |
-| Imágenes | Firebase Storage |
-| Frontend | HTML + CSS + Vanilla JS (sin build tools) |
+### Por qué antes no funcionaban
 
----
+Cinco fallas encadenadas, cualquiera de ellas suficiente para romper todo:
 
-## Archivos clave
-
-| Archivo | Propósito |
-|---------|-----------|
-| `index.html` | Estructura completa de la app (single page) |
-| `app.js` | Toda la lógica: auth, listeners, render, modales |
-| `firebase-config.js` | Init Firebase + upload imágenes + FCM tokens |
-| `firebase-messaging-sw.js` | Service Worker para push en background |
-| `styles.css` | Diseño completo (tema Pantógrafos Master) |
-| `functions/index.js` | Cloud Function: detecta cambios → manda push a todos |
-| `firestore.rules` | Reglas de seguridad por rol |
-| `storage.rules` | Reglas de Firebase Storage |
-| `.github/workflows/deploy.yml` | CI/CD: push a main → deploy automático a GitHub Pages |
+1. `firebase.messaging()` se llamaba sin guardia en el nivel superior de
+   `firebase-config.js`. En navegadores sin FCM (Safari iOS sin instalar, navegador
+   interno de WhatsApp) lanzaba excepción y se llevaba puesto el resto del archivo,
+   incluido `storage`. Hoy está detrás de `isSupported()` y carga perezosa.
+2. El permiso se pedía desde `onAuthStateChanged`, sin gesto del usuario. iOS lo
+   rechaza siempre y Chrome lo degrada a la UI silenciosa. Hoy se pide desde un botón.
+3. La regla de creación de `vendors` exigía `isAdmin()`, que leía el documento que
+   todavía no existía. El alta de perfil se denegaba siempre y, en consecuencia,
+   **el token FCM nunca se guardaba**. Hoy cada usuario puede crear su propio perfil
+   con rol `vendedor`, y el token se guarda con `set({merge:true})` en vez de `update()`.
+4. Todo dependía de una Cloud Function que quizá nunca se desplegó.
+5. La campana solo reseteaba un contador en memoria; no había bandeja ni historial.
 
 ---
 
-## Firebase — IDs del proyecto
+## Automatizaciones
 
-- **Project ID:** `maquinas-master`
-- **Storage bucket:** `maquinas-master.firebasestorage.app`
-- **Region Functions:** `us-central1`
-- **Auth provider:** Email/Password
+| Función | Cómo funciona | Archivo |
+|---|---|---|
+| **Compartir ficha** | Compone la ficha en un `<canvas>` (1080×1350) y la manda por Web Share API → WhatsApp. Cascada de respaldos: imagen → texto → descarga → portapapeles. | `share.js` |
+| **Alta por voz** | `SpeechRecognition` en `es-AR`. Entiende modelo, características y estado ("compresor 500 litros, ya llegó"). Prellena y el usuario confirma. | `voice.js` |
+| **Foto automática** | Cada modelo cargado con foto queda en la colección `catalog`. Al escribir o dictar un modelo parecido, se completan foto y características solas. | `catalog.js` |
+| **Compresión de fotos** | Redimensiona a 1600 px y exporta JPEG 0.82 en el celular, antes de subir. Resuelve la orientación EXIF. | `firebase-config.js` |
+| **Búsqueda y filtros** | Sobre los datos ya cargados. Cero lecturas extra a Firestore. | `app.js` |
+| **Offline** | Service Worker + persistencia de Firestore. Abre y muestra el stock sin señal. | `firebase-messaging-sw.js` |
 
 ---
 
-## Cómo deployar cambios
+## Arquitectura del frontend
 
-**Frontend** (automático):
+Sin build tools: HTML, CSS y JavaScript plano cargado con `<script>` en orden.
+
+| Archivo | Rol |
+|---|---|
+| `index.html` | Estructura, sprite de íconos SVG, tema aplicado antes del primer pintado |
+| `styles.css` | Sistema de diseño con tokens. Oscuro y claro, por sistema o manual |
+| `firebase-config.js` | Init de Firebase, Service Worker, permisos, tokens, compresión y subida |
+| `ui.js` | Reconciliador keyed, animaciones FLIP, toasts, hojas, render de tarjetas |
+| `catalog.js` | Memoria de modelos y coincidencia difusa |
+| `share.js` | Composición de la ficha y Web Share |
+| `voice.js` | Dictado y parser |
+| `notifications.js` | Las tres capas, la bandeja y el estado de permisos |
+| `app.js` | Orquestador: auth, listeners, mutaciones, filtros, tema, instalación |
+| `firebase-messaging-sw.js` | Un solo Service Worker: push **y** caché offline |
+
+### El reconciliador
+
+Antes, cada `onSnapshot` hacía `innerHTML = …` sobre la grilla entera: destruía el
+DOM, perdía el scroll y el foco, y mataba cualquier animación. Ahora `reconciliar()`
+identifica cada tarjeta por el id de la máquina y solo parchea lo que cambió, con dos
+firmas separadas (media y cuerpo) para no recargar la foto si no cambió.
+`reconciliarFlip()` además anima el desplazamiento de las tarjetas que se mueven.
+
+---
+
+## Colecciones de Firestore
+
+| Colección | Contenido | Quién escribe |
+|---|---|---|
+| `machines` | El stock | admin (todo), vendedor (solo campos de venta) |
+| `vendors` | Perfiles, tokens FCM, marca de última lectura | cada uno lo suyo; admin todo |
+| `activity` | Feed de novedades — alimenta las notificaciones | cualquier vendedor, solo en nombre propio |
+| `catalog` | Memoria de modelos: foto y características | cualquier vendedor |
+| `notifications` | Historial de la Cloud Function, si está desplegada | solo Admin SDK |
+
+---
+
+## Deploy
+
+**Frontend** — automático al hacer push a `main`; GitHub Actions publica en ~2 minutos.
+
 ```
-git add . && git commit -m "descripción" && git push origin main
-# GitHub Actions despliega en ~2 minutos
+git push origin main
 ```
 
-**Cloud Functions / Firestore Rules** (manual, desde la carpeta del proyecto):
+**Reglas de Firestore** — NO se despliegan solas. Hay que correrlo a mano una vez:
+
+```
+firebase deploy --only firestore:rules
+```
+
+Sin esto, la bandeja de novedades y el catálogo no tienen permiso de escritura.
+
+**Cloud Functions** (opcional, solo para la capa 3):
+
 ```
 firebase deploy --only functions
-firebase deploy --only firestore:rules
-firebase deploy --only storage
 ```
 
 ---
 
 ## Crear un vendedor nuevo
 
-1. Firebase Console → Authentication → Add user → email + contraseña
-2. Copiar el UID generado
-3. Firestore → colección `vendors` → nuevo documento con ID = UID
-4. Campos: `nombre` (string), `email` (string), `rol` = `vendedor`, `fcm_tokens` (array vacío)
+1. Firebase Console → Authentication → Add user → email y contraseña.
+2. Listo. La primera vez que entre, la app le crea sola el perfil en `vendors`
+   con rol `vendedor`.
+3. Para hacerlo admin: Firestore → `vendors` → su documento → `rol` = `admin`.
 
 ---
 
-## Push notifications en Android
+## Cosas para saber
 
-Cada vendedor abre la app en Chrome Android → "Agregar a pantalla de inicio" → abre la PWA → acepta el permiso de notificaciones → recibe push aunque el celular esté bloqueado.
+**Versionado de assets.** Lo maneja el Service Worker con la constante `VERSION` en
+`firebase-messaging-sw.js`. Al cambiar archivos, subir esa versión — reemplaza al
+viejo `?v=X` manual de cada `<script>`.
 
-La Cloud Function `notificarCambioMaquina` se dispara en cada escritura en la colección `machines` y manda FCM a todos los tokens registrados.
+**Foto en la ficha compartida.** El canvas necesita CORS en el bucket de Storage.
+Si no está configurado, la ficha se arma igual con una portada generada. Para tener
+la foto real en la ficha, una sola vez:
 
----
+```
+# cors.json → [{"origin":["https://pablodamino.github.io"],"method":["GET"],"maxAgeSeconds":3600}]
+gsutil cors set cors.json gs://maquinas-master.firebasestorage.app
+```
 
-## Problemas conocidos y soluciones
+**Dictado por voz.** Solo Chrome (Android y escritorio) y solo por HTTPS. En
+navegadores sin soporte el botón se oculta solo.
 
-| Problema | Causa | Solución |
-|----------|-------|----------|
-| "Cargando..." pegado | Índice Firestore no construido | Queries ordenan client-side (sin orderBy) |
-| Caché browser sirve JS viejo | Browser caché | Versión en los scripts `?v=X` — incrementar en cada deploy importante |
-| FAB + no aparece | `rol` en Firestore no es `admin` | Verificar en Firestore que `rol: "admin"` (minúsculas) |
-| Error deploy Functions | APIs Google Cloud habilitándose | Esperar 3 min y volver a `firebase deploy --only functions` |
+**Notificaciones en iPhone.** Solo funcionan con la app agregada a la pantalla de
+inicio, desde iOS 16.4. La app lo detecta y muestra las instrucciones.
+
+**Probar en local:**
+
+```
+npx --yes serve .
+```
+
+Todas las rutas son relativas, así que funciona en cualquier subcarpeta.

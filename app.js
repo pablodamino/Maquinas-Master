@@ -1,637 +1,1094 @@
+/* ═══════════════════════════════════════════════════════════════
+   app.js — orquestador
+   Autenticación, listeners de Firestore, mutaciones, filtros y
+   cableado de la interfaz. El render vive en ui.js.
+   ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
-// ── Estado global ─────────────────────────────────
-let currentUser   = null;
-let currentVendor = null;
-let isAdmin       = false;
-let activeSellId  = null;
-let activeEditId  = null;
-let activeStateId = null;
-let unsubscribers = [];
-let notifCount    = 0;
-let counterTimer  = null;
-let caminoData    = [];
-let inmediataData = [];
-let vendidasData  = [];
+/* ── Estado ─────────────────────────────────────────────────── */
 
-// ── Helpers DOM ───────────────────────────────────
-const $  = (id) => document.getElementById(id);
-const show = (id) => $(id)?.classList.remove('hidden');
-const hide = (id) => $(id)?.classList.add('hidden');
+const DATA = { camino: [], inmediata: [], vendidas: [] };
+let _unsubs      = [];
+let _cargado     = { camino: false, inmediata: false, vendidas: false };
+let _filtro      = 'todas';
+let _busqueda    = '';
+let _timerDias   = null;
+let _idVenta     = null;
+let _idEstado    = null;
+let _promptInstall = null;
 
-function showToast(title, body = '', type = '') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<div class="toast-title">${escHtml(title)}</div>${body ? `<div class="toast-body">${escHtml(body)}</div>` : ''}`;
-  $('toast-container').prepend(t);
-  setTimeout(() => t.remove(), 4500);
-}
+const FOTO = {
+  add:  { blob: null, previa: null, delCatalogo: null },
+  edit: { blob: null, previa: null, delCatalogo: null }
+};
 
-function setBtn(id, loading, origText) {
-  const b = $(id); if (!b) return;
-  if (loading) { b.disabled = true; b.dataset.orig = b.innerHTML; b.innerHTML = '<span class="spinner"></span>'; }
-  else         { b.disabled = false; b.innerHTML = b.dataset.orig || origText || b.innerHTML; }
-}
+const todas = () => [...DATA.camino, ...DATA.inmediata, ...DATA.vendidas];
+const buscarMaquina = (id) => todas().find((m) => m.id === id) || null;
 
-function showErr(id, msg) { const el=$(id); if(el){ el.textContent=msg; el.classList.remove('hidden'); } }
-function clearErr(id)     { $(id)?.classList.add('hidden'); }
-
-function formatFecha(ts) {
-  if (!ts) return '—';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
-}
-
-function diasDesde(ts) {
-  if (!ts) return 0;
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
-}
-
-function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function initials(name) {
-  if (!name) return '?';
-  return name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
-}
-
-// ── A) AUTH ───────────────────────────────────────
-auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    currentUser = user;
-    await loadVendorProfile(user.uid);
-    showApp();
-    startListeners();
-    registerPush();
-  } else {
-    currentUser = null; currentVendor = null; isAdmin = false;
-    stopListeners();
-    showLogin();
-  }
-});
-
-async function loadVendorProfile(uid) {
-  try {
-    const snap = await db.collection('vendors').doc(uid).get();
-    if (snap.exists) {
-      currentVendor = { id: uid, ...snap.data() };
-      // Aceptar "admin" o "Admin" (tolerante a mayúsculas)
-      isAdmin = (currentVendor.rol || '').toLowerCase() === 'admin';
-      console.log('Perfil cargado:', currentVendor.nombre, '| rol:', currentVendor.rol, '| isAdmin:', isAdmin);
-    } else {
-      console.warn('No existe documento en vendors/', uid, '— creando con rol vendedor');
-      currentVendor = { id: uid, nombre: currentUser.email.split('@')[0], email: currentUser.email, rol: 'vendedor', fcm_tokens: [] };
-      await db.collection('vendors').doc(uid).set(currentVendor);
-      isAdmin = false;
-    }
-  } catch (e) {
-    console.error('Error cargando perfil de vendor:', e);
-    // Si falla la lectura del perfil, intentar continuar con rol básico
-    currentVendor = { id: uid, nombre: currentUser.email.split('@')[0], email: currentUser.email, rol: 'vendedor', fcm_tokens: [] };
-    isAdmin = false;
-  }
-}
-
-function showLogin() {
-  show('login-screen'); hide('app');
-  if (counterTimer) { clearInterval(counterTimer); counterTimer = null; }
-}
-
-function showApp() {
-  hide('login-screen'); show('app');
-  const nombre = currentVendor?.nombre || currentUser?.email || '';
-  $('header-user-name').textContent = nombre;
-  $('header-avatar').textContent = initials(nombre);
-  if (isAdmin) {
-    show('fab-add');
-    hide('debug-bar');
-  } else {
-    hide('fab-add');
-    // Mostrar barra de debug para ayudar a diagnosticar
-    $('debug-uid').textContent  = `UID: ${currentUser?.uid}`;
-    $('debug-rol').textContent  = `rol detectado: "${currentVendor?.rol || 'ninguno'}"`;
-    $('debug-admin').textContent = `isAdmin: ${isAdmin}`;
-    show('debug-bar');
-  }
-  counterTimer = setInterval(refreshCounters, 60000);
-}
-
-$('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault(); clearErr('login-error');
-  const email    = $('login-email').value.trim();
-  const password = $('login-password').value;
-  setBtn('login-btn', true);
-  try {
-    await auth.signInWithEmailAndPassword(email, password);
-  } catch (err) {
-    const msgs = {
-      'auth/user-not-found':    'Email no encontrado.',
-      'auth/wrong-password':    'Contraseña incorrecta.',
-      'auth/invalid-credential':'Email o contraseña incorrectos.',
-      'auth/invalid-email':     'Email inválido.',
-      'auth/too-many-requests': 'Demasiados intentos. Esperá unos minutos.'
-    };
-    showErr('login-error', msgs[err.code] || 'Error al ingresar.');
-    setBtn('login-btn', false);
-  }
-});
-
-$('logout-btn').addEventListener('click', () => auth.signOut());
-
-// ── B) FIRESTORE LISTENERS ────────────────────────
-// Ordenamos del lado del cliente para evitar índices compuestos en Firestore
-function sortBy(arr, field, desc = false) {
+function ordenar(arr, campo, desc) {
   return [...arr].sort((a, b) => {
-    const va = a[field]?.toMillis?.() ?? a[field] ?? 0;
-    const vb = b[field]?.toMillis?.() ?? b[field] ?? 0;
+    const va = a[campo]?.toMillis?.() ?? 0;
+    const vb = b[campo]?.toMillis?.() ?? 0;
+    if (!va && !vb) return norm(a.modelo).localeCompare(norm(b.modelo));
+    if (!va) return 1;
+    if (!vb) return -1;
     return desc ? vb - va : va - vb;
   });
 }
 
-function startListeners() {
-  stopListeners();
+/* ── Autenticación ──────────────────────────────────────────── */
 
-  // Máquinas en camino — sin orderBy para no requerir índice compuesto
-  const u1 = db.collection('machines')
-    .where('estado', 'in', ['pedido', 'embarcado'])
-    .onSnapshot(
-      snap => {
-        caminoData = sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_oc');
-        renderCamino();
-      },
-      err => {
-        console.error('Error listener camino:', err);
-        $('grid-camino').innerHTML = '<div class="empty-state">No hay máquinas en camino</div>';
-        $('count-camino').textContent = '0';
-        $('stat-camino').textContent = '0';
-      }
-    );
-
-  const u2 = db.collection('machines')
-    .where('estado', '==', 'entrega_inmediata')
-    .onSnapshot(
-      snap => {
-        inmediataData = sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_llegada');
-        renderInmediata();
-      },
-      err => {
-        console.error('Error listener inmediata:', err);
-        $('grid-inmediata').innerHTML = '<div class="empty-state">Sin equipos disponibles</div>';
-        $('count-inmediata').textContent = '0';
-        $('stat-inmediata').textContent = '0';
-      }
-    );
-
-  const u3 = db.collection('machines')
-    .where('estado', '==', 'vendida_instalada')
-    .onSnapshot(
-      snap => {
-        renderVendidas(sortBy(snap.docs.map(d => ({ id: d.id, ...d.data() })), 'fecha_venta', true));
-      },
-      err => {
-        console.error('Error listener vendidas:', err);
-      }
-    );
-
-  unsubscribers = [u1, u2, u3];
-
-  messaging.onMessage(payload => {
-    const title = payload.notification?.title || 'Stock actualizado';
-    const body  = payload.notification?.body  || '';
-    showToast(title, body, 'success');
-    notifCount++;
-    $('notif-badge').textContent = notifCount;
-    show('notif-badge');
-  });
-}
-
-function stopListeners() { unsubscribers.forEach(u => u && u()); unsubscribers = []; }
-
-// ── C) RENDER ─────────────────────────────────────
-function badgeHtml(estado) {
-  const map = {
-    pedido:            `<span class="badge badge-pedido">● Pedido</span>`,
-    embarcado:         `<span class="badge badge-embarcado">▶ Embarcado</span>`,
-    entrega_inmediata: `<span class="badge badge-inmediata">✓ Disponible</span>`,
-    vendida_instalada: `<span class="badge badge-vendida">✔ Vendida</span>`
-  };
-  return map[estado] || `<span class="badge">${escHtml(estado)}</span>`;
-}
-
-function imageHtml(m, cls = 'card-image') {
-  if (m.imagen_url) {
-    return `<img class="${cls}" src="${escHtml(m.imagen_url)}" alt="${escHtml(m.modelo)}" loading="lazy" />`;
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    currentUser = user;
+    await cargarPerfil(user.uid);
+    cargarUltimaLectura(currentVendor);
+    mostrarApp();
+    arrancarListeners();
+    escucharCatalogo();
+    escucharActividad();
+    escucharFCMPrimerPlano();
+    sincronizarTokenFCM();     // si el permiso ya estaba dado, refresca el token
+  } else {
+    pararListeners();
+    dejarCatalogo();
+    dejarActividad();
+    currentUser = null; currentVendor = null; isAdmin = false;
+    mostrarLogin();
   }
-  return `<div class="card-image-placeholder"><span class="icon">🔧</span><span>${escHtml(m.modelo)}</span></div>`;
-}
-
-function cardCaminoHtml(m) {
-  const dias = diasDesde(m.fecha_oc);
-  const adminBtns = isAdmin ? `
-    <button class="btn btn-outline btn-sm" onclick="openStateModal('${m.id}')">Estado logístico</button>
-    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
-    <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>` : '';
-  return `
-    <div class="machine-card" id="card-${m.id}">
-      ${imageHtml(m)}
-      <div class="card-body">
-        <div class="card-top">
-          <div class="card-modelo">${escHtml(m.modelo)}</div>
-          ${badgeHtml(m.estado)}
-        </div>
-        ${m.caracteristicas ? `<div class="card-caracteristicas">${escHtml(m.caracteristicas)}</div>` : ''}
-        <div class="card-counter">
-          <span class="counter-num" data-desde="${m.fecha_oc?.toMillis?.() || ''}">${dias}</span>
-          <span class="counter-label">&nbsp;días desde la OC</span>
-        </div>
-        <div class="card-meta">
-          OC confirmada: <strong>${formatFecha(m.fecha_oc)}</strong>
-          ${m.fecha_embarque ? `<br>Embarcada: <strong>${formatFecha(m.fecha_embarque)}</strong>` : ''}
-          ${m.notas ? `<br><em>${escHtml(m.notas)}</em>` : ''}
-        </div>
-        <div class="card-actions">
-          ${adminBtns}
-          ${m.cliente
-            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>
-               <button class="btn btn-ghost btn-sm" onclick="openSellModal('${m.id}', true)" title="Editar venta">✏ Editar</button>
-               <button class="btn-icon danger" onclick="cancelSale('${m.id}')" title="Cancelar venta">✕</button>`
-            : `<button class="btn btn-success btn-sm" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
-        </div>
-      </div>
-    </div>`;
-}
-
-function cardInmediataHtml(m) {
-  const adminBtns = isAdmin ? `
-    <button class="btn btn-outline btn-sm" onclick="openStateModal('${m.id}')">Estado</button>
-    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
-    <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>` : '';
-  return `
-    <div class="machine-card inmediata" id="card-${m.id}">
-      ${imageHtml(m)}
-      <div class="card-body">
-        <div class="card-top">
-          <div class="card-modelo">${escHtml(m.modelo)}</div>
-          ${badgeHtml(m.estado)}
-        </div>
-        ${m.caracteristicas ? `<div class="card-caracteristicas">${escHtml(m.caracteristicas)}</div>` : ''}
-        <div class="card-meta">
-          ${m.fecha_llegada ? `Llegada: <strong>${formatFecha(m.fecha_llegada)}</strong>` : ''}
-          ${m.notas ? `<br><em>${escHtml(m.notas)}</em>` : ''}
-        </div>
-        <div class="card-actions">
-          ${adminBtns}
-          ${m.cliente
-            ? `<div class="venta-info">📋 Vendida a <strong>${escHtml(m.cliente)}</strong></div>
-               <button class="btn btn-ghost btn-sm" onclick="openSellModal('${m.id}', true)" title="Editar venta">✏ Editar</button>
-               <button class="btn-icon danger" onclick="cancelSale('${m.id}')" title="Cancelar venta">✕</button>`
-            : `<button class="btn btn-success" onclick="openSellModal('${m.id}')">Registrar venta</button>`}
-        </div>
-      </div>
-    </div>`;
-}
-
-function renderCamino() {
-  const n = caminoData.length;
-  $('count-camino').textContent = n;
-  $('stat-camino').textContent  = n;
-  $('grid-camino').innerHTML    = n
-    ? caminoData.map(cardCaminoHtml).join('')
-    : '<div class="empty-state">No hay máquinas en camino</div>';
-}
-
-function renderInmediata() {
-  const n = inmediataData.length;
-  $('count-inmediata').textContent = n;
-  $('stat-inmediata').textContent  = n;
-  $('grid-inmediata').innerHTML    = n
-    ? inmediataData.map(cardInmediataHtml).join('')
-    : '<div class="empty-state">Sin equipos disponibles para entrega inmediata</div>';
-}
-
-function renderVendidas(maquinas) {
-  vendidasData = maquinas;
-  const n = maquinas.length;
-  $('count-vendidas').textContent = n;
-  $('stat-vendidas').textContent  = n;
-  const actionsTd = (m) => isAdmin
-    ? `<td class="td-actions">
-        <button class="btn-icon" onclick="openEditModal('${m.id}')" title="Editar">✏</button>
-        <button class="btn-icon danger" onclick="confirmDelete('${m.id}')" title="Eliminar">🗑</button>
-      </td>`
-    : '<td></td>';
-  $('tabla-vendidas-body').innerHTML = n
-    ? maquinas.map(m => `
-        <tr>
-          <td>${m.imagen_url ? `<img class="td-thumb" src="${escHtml(m.imagen_url)}" alt="" loading="lazy">` : ''}</td>
-          <td class="td-modelo">${escHtml(m.modelo)}</td>
-          <td>${escHtml(m.cliente || '—')}</td>
-          <td>${escHtml(m.vendido_por || '—')}</td>
-          <td style="white-space:nowrap">${formatFecha(m.fecha_venta)}</td>
-          <td class="notas-cell">${escHtml(m.caracteristicas || '')}${m.notas ? '<br><em>'+escHtml(m.notas)+'</em>' : ''}</td>
-          ${actionsTd(m)}
-        </tr>`).join('')
-    : `<tr><td colspan="7" class="text-center text-muted" style="padding:2rem">Sin máquinas vendidas aún</td></tr>`;
-}
-
-function refreshCounters() {
-  document.querySelectorAll('[data-desde]').forEach(el => {
-    const ms = parseInt(el.dataset.desde, 10);
-    if (ms) el.textContent = Math.max(0, Math.floor((Date.now() - ms) / 86400000));
-  });
-}
-
-// ── D) IMAGEN PREVIEW ─────────────────────────────
-function bindImagePreview(inputId, previewWrapId) {
-  $(inputId).addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const wrap = $(previewWrapId);
-      wrap.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover" />`;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-bindImagePreview('add-imagen', 'add-img-preview-wrap');
-bindImagePreview('edit-imagen', 'edit-img-preview-wrap');
-
-// ── E) AGREGAR MÁQUINA ────────────────────────────
-$('fab-add').addEventListener('click', () => {
-  $('form-add-machine').reset();
-  clearErr('add-error');
-  $('add-img-preview-wrap').innerHTML = `<div class="img-preview-placeholder"><span class="icon">📷</span><span>Sin imagen seleccionada</span></div>`;
-  hide('add-upload-progress-wrap');
-  $('add-fecha-oc').value = new Date().toISOString().split('T')[0];
-  show('modal-add');
+  $('boot')?.classList.add('is-gone');
 });
 
-$('form-add-machine').addEventListener('submit', async (e) => {
-  e.preventDefault(); clearErr('add-error');
-  const modelo          = $('add-modelo').value.trim();
-  const caracteristicas = $('add-caracteristicas').value.trim();
-  const fechaStr        = $('add-fecha-oc').value;
-  const notas           = $('add-notas').value.trim();
-  const file            = $('add-imagen').files[0];
-  if (!modelo || !caracteristicas || !fechaStr) return;
+async function cargarPerfil(uid) {
+  const base = {
+    id: uid,
+    nombre: (currentUser.email || '').split('@')[0],
+    email: currentUser.email || '',
+    rol: 'vendedor',
+    fcm_tokens: []
+  };
 
-  setBtn('add-submit-btn', true);
   try {
-    // Crear el documento primero para tener el ID
-    const docRef = await db.collection('machines').add({
-      modelo, caracteristicas, notas,
-      estado: 'pedido',
-      imagen_url: null,
-      fecha_oc: firebase.firestore.Timestamp.fromDate(new Date(fechaStr + 'T00:00:00')),
-      fecha_embarque: null, fecha_llegada: null, fecha_venta: null,
+    const snap = await db.collection('vendors').doc(uid).get();
+    if (snap.exists) {
+      currentVendor = { id: uid, ...snap.data() };
+    } else {
+      // Alta automática. Antes fallaba siempre porque la regla de creación
+      // exigía isAdmin(), que a su vez leía este mismo documento inexistente.
+      currentVendor = base;
+      try {
+        await db.collection('vendors').doc(uid).set({
+          nombre: base.nombre, email: base.email, rol: 'vendedor', fcm_tokens: []
+        });
+      } catch (e) {
+        console.warn('No se pudo crear el perfil:', e.code || e);
+      }
+    }
+  } catch (e) {
+    console.warn('No se pudo leer el perfil:', e.code || e);
+    currentVendor = base;
+  }
+
+  isAdmin = String(currentVendor.rol || '').trim().toLowerCase() === 'admin';
+}
+
+function mostrarLogin() {
+  $('app').classList.add('hidden');
+  $('login-screen').classList.remove('hidden');
+  if (_timerDias) { clearInterval(_timerDias); _timerDias = null; }
+  cargando('login-btn', false);
+  $('login-form').reset();
+}
+
+function mostrarApp() {
+  $('login-screen').classList.add('hidden');
+  $('app').classList.remove('hidden');
+
+  const nombre = currentVendor?.nombre || currentUser?.email || '';
+  $('btn-avatar').textContent = iniciales(nombre);
+  $('um-name').textContent  = nombre;
+  $('um-email').textContent = currentUser?.email || '';
+  $('um-role').textContent  = isAdmin ? 'admin' : 'vendedor';
+
+  $('fab').classList.toggle('hidden', !isAdmin);
+
+  esqueletos($('grid-camino'), 3);
+  esqueletos($('grid-inmediata'), 2);
+
+  if (!_timerDias) _timerDias = setInterval(refrescarDias, 60000);
+  actualizarEstadoNotif();
+}
+
+$('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  limpiarError('login-error');
+  const email = $('login-email').value.trim();
+  const pass  = $('login-password').value;
+  if (!email || !pass) return;
+
+  cargando('login-btn', true);
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (err) {
+    const msgs = {
+      'auth/user-not-found':     'No encontramos ese email.',
+      'auth/wrong-password':     'Contraseña incorrecta.',
+      'auth/invalid-credential': 'Email o contraseña incorrectos.',
+      'auth/invalid-email':      'El email no es válido.',
+      'auth/too-many-requests':  'Demasiados intentos. Esperá unos minutos.',
+      'auth/network-request-failed': 'Sin conexión. Revisá internet e intentá de nuevo.'
+    };
+    mostrarError('login-error', msgs[err.code] || 'No pudimos ingresar. Probá de nuevo.');
+    cargando('login-btn', false);
+    haptic([50, 40, 50]);
+  }
+});
+
+/* ── Listeners de Firestore ─────────────────────────────────── */
+
+function arrancarListeners() {
+  pararListeners();
+  _cargado = { camino: false, inmediata: false, vendidas: false };
+
+  const manejar = (clave, campo, desc, render) => (snap) => {
+    marcarCache(snap.metadata.fromCache);
+    DATA[clave] = ordenar(snap.docs.map((d) => ({ id: d.id, ...d.data() })), campo, desc);
+    _cargado[clave] = true;
+    render();
+    actualizarStats();
+  };
+
+  const fallo = (clave, render) => (err) => {
+    console.error(`Listener ${clave}:`, err);
+    DATA[clave] = [];
+    _cargado[clave] = true;
+    render();
+    actualizarStats();
+    if (err.code === 'permission-denied') {
+      toast('Sin permiso para ver el stock',
+            'Pedile al administrador que revise tu perfil de vendedor.', 'error', 8000);
+    }
+  };
+
+  // includeMetadataChanges permite saber si los datos vienen del caché, que es
+  // la señal honesta de "estoy sin conexión con el servidor".
+  const OPTS = { includeMetadataChanges: true };
+
+  _unsubs = [
+    db.collection('machines').where('estado', 'in', ['pedido', 'embarcado'])
+      .onSnapshot(OPTS, manejar('camino', 'fecha_oc', false, render), fallo('camino', render)),
+
+    db.collection('machines').where('estado', '==', 'entrega_inmediata')
+      .onSnapshot(OPTS, manejar('inmediata', 'fecha_llegada', false, render), fallo('inmediata', render)),
+
+    db.collection('machines').where('estado', '==', 'vendida_instalada')
+      .onSnapshot(OPTS, manejar('vendidas', 'fecha_venta', true, render), fallo('vendidas', render))
+  ];
+}
+
+function pararListeners() {
+  _unsubs.forEach((u) => { try { u(); } catch (e) {} });
+  _unsubs = [];
+  clearTimeout(_tCache);
+  _tCache = null;
+  _desdeCache = false;
+}
+
+/* ── Filtrado y render ──────────────────────────────────────── */
+
+/* "camino" no es un estado sino la sección: agrupa pedido + embarcado.
+   Es lo que representa la estadística de la portada. */
+const ESTADOS_DE = {
+  camino: ['pedido', 'embarcado'],
+  pedido: ['pedido'],
+  embarcado: ['embarcado'],
+  entrega_inmediata: ['entrega_inmediata'],
+  vendida_instalada: ['vendida_instalada']
+};
+
+function coincide(m) {
+  if (_filtro === 'mias') {
+    const yo = norm(currentVendor?.nombre || currentUser?.email || '');
+    if (norm(m.vendido_por) !== yo) return false;
+  } else if (_filtro !== 'todas') {
+    const permitidos = ESTADOS_DE[_filtro];
+    if (permitidos && !permitidos.includes(m.estado)) return false;
+  }
+
+  if (!_busqueda) return true;
+  const heno = norm([m.modelo, m.caracteristicas, m.cliente, m.vendido_por, m.notas].join(' '));
+  return _busqueda.split(/\s+/).every((t) => heno.includes(t));
+}
+
+function seccionVisible(clave) {
+  if (_filtro === 'todas' || _filtro === 'mias') return true;
+  if (clave === 'camino')    return ['camino', 'pedido', 'embarcado'].includes(_filtro);
+  if (clave === 'inmediata') return _filtro === 'entrega_inmediata';
+  if (clave === 'vendidas')  return _filtro === 'vendida_instalada';
+  return true;
+}
+
+function render() {
+  const ctx = { isAdmin };
+  const filtrando = _filtro !== 'todas' || !!_busqueda;
+
+  const camino    = DATA.camino.filter(coincide);
+  const inmediata = DATA.inmediata.filter(coincide);
+  const vendidas  = DATA.vendidas.filter(coincide);
+
+  $('sec-camino').classList.toggle('hidden', !seccionVisible('camino'));
+  $('sec-inmediata').classList.toggle('hidden', !seccionVisible('inmediata'));
+  $('sec-vendidas').classList.toggle('hidden', !seccionVisible('vendidas'));
+
+  $('count-camino').textContent    = camino.length;
+  $('count-inmediata').textContent = inmediata.length;
+  $('count-vendidas').textContent  = vendidas.length;
+
+  if (_cargado.camino) {
+    pintarGrilla($('grid-camino'), camino, ctx, filtrando
+      ? { glifo: '🔍', titulo: 'Nada por acá', sub: 'Ninguna máquina en camino coincide con lo que buscás.' }
+      : { glifo: '🚢', titulo: 'No hay máquinas en camino', sub: 'Cuando se confirme una orden de compra va a aparecer acá.' });
+  }
+
+  if (_cargado.inmediata) {
+    pintarGrilla($('grid-inmediata'), inmediata, ctx, filtrando
+      ? { glifo: '🔍', titulo: 'Nada por acá', sub: 'Ninguna máquina disponible coincide con lo que buscás.' }
+      : { glifo: '🏭', titulo: 'Sin equipos en planta', sub: 'Acá vas a ver lo que está listo para entregar hoy mismo.' });
+  }
+
+  if (_cargado.vendidas) pintarVendidas($('tabla-vendidas'), vendidas, ctx);
+
+  // Al filtrar por vendidas, abrir la tabla sola: si no, el filtro parece vacío.
+  if (_filtro === 'vendida_instalada') abrirVendidas(true);
+
+  actualizarMisVentas();
+}
+
+function actualizarStats() {
+  animarNumero($('stat-camino'), DATA.camino.length);
+  animarNumero($('stat-inmediata'), DATA.inmediata.length);
+  animarNumero($('stat-vendidas'), DATA.vendidas.length);
+}
+
+function actualizarMisVentas() {
+  const caja = $('hero-mine');
+  const yo = norm(currentVendor?.nombre || currentUser?.email || '');
+  if (!yo) { caja.classList.add('hidden'); return; }
+
+  const mias = todas().filter((m) => norm(m.vendido_por) === yo && m.fecha_venta);
+  if (!mias.length) { caja.classList.add('hidden'); return; }
+
+  const ahora = new Date();
+  const esteMes = mias.filter((m) => {
+    const d = toDate(m.fecha_venta);
+    return d && d.getMonth() === ahora.getMonth() && d.getFullYear() === ahora.getFullYear();
+  }).length;
+
+  // Chispa de los últimos 6 meses.
+  const meses = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - (5 - i), 1);
+    return mias.filter((m) => {
+      const f = toDate(m.fecha_venta);
+      return f && f.getMonth() === d.getMonth() && f.getFullYear() === d.getFullYear();
+    }).length;
+  });
+  const tope = Math.max(1, ...meses);
+
+  caja.innerHTML =
+    `<span class="hm-n num">${esteMes}</span>` +
+    `<span>${esteMes === 1 ? 'venta tuya' : 'ventas tuyas'} este mes · ${mias.length} en total</span>` +
+    `<span class="hm-spark">` +
+    meses.map((v, i) => `<i style="height:${Math.max(3, Math.round((v / tope) * 20))}px;animation-delay:${i * 40}ms"></i>`).join('') +
+    `</span>`;
+  caja.classList.remove('hidden');
+}
+
+/* ── Acciones sobre las tarjetas ────────────────────────────── */
+
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const m = buscarMaquina(id);
+  if (!m) return;
+
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  switch (btn.dataset.act) {
+    case 'compartir':       haptic(); compartirMaquina(m); break;
+    case 'vender':          abrirVenta(m, false); break;
+    case 'editar-venta':    abrirVenta(m, true); break;
+    case 'cancelar-venta':  cancelarVenta(m); break;
+    case 'estado':          abrirEstado(m); break;
+    case 'editar':          abrirEditar(m); break;
+    case 'borrar':          borrarMaquina(m); break;
+  }
+});
+
+/* ── Alta de máquina ────────────────────────────────────────── */
+
+function estadoElegido(contId) {
+  return $(contId).querySelector('.chip.is-on')?.dataset.e || 'pedido';
+}
+
+$('add-estado').addEventListener('click', (ev) => {
+  const c = ev.target.closest('.chip');
+  if (!c) return;
+  $('add-estado').querySelectorAll('.chip').forEach((x) => x.classList.toggle('is-on', x === c));
+  haptic();
+});
+
+$('fab').addEventListener('click', () => {
+  $('form-add').reset();
+  limpiarError('add-error');
+  FOTO.add = { blob: null, previa: null, delCatalogo: null };
+  pintarFoto('add', null);
+  $('add-photo-note').textContent = '';
+  $('add-suggest').innerHTML = '';
+  $('add-progress').classList.add('hidden');
+  $('add-progress').querySelector('i').style.width = '0%';
+  $('add-estado').querySelectorAll('.chip').forEach((x, i) => x.classList.toggle('is-on', i === 0));
+  $('add-fecha').value = new Date().toISOString().slice(0, 10);
+  abrirHoja('sheet-add');
+  haptic();
+});
+
+$('form-add').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  limpiarError('add-error');
+
+  const modelo = $('add-modelo').value.trim();
+  const carac  = $('add-caracteristicas').value.trim();
+  const fecha  = $('add-fecha').value;
+  const notas  = $('add-notas').value.trim();
+  const estado = estadoElegido('add-estado');
+  if (!modelo || !carac || !fecha) return;
+
+  cargando('add-submit', true);
+  try {
+    const ahora = firebase.firestore.FieldValue.serverTimestamp();
+    const doc = {
+      modelo, caracteristicas: carac, notas,
+      estado,
+      imagen_url: FOTO.add.delCatalogo || null,
+      fecha_oc: firebase.firestore.Timestamp.fromDate(new Date(fecha + 'T12:00:00')),
+      fecha_embarque: estado === 'embarcado' ? ahora : null,
+      fecha_llegada:  estado === 'entrega_inmediata' ? ahora : null,
+      fecha_venta: null,
       cliente: null, vendido_por: null,
       creado_por: currentVendor?.nombre || currentUser.email,
-      actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
-    });
+      actualizado_en: ahora
+    };
 
-    // Subir imagen si se seleccionó
-    if (file) {
-      show('add-upload-progress-wrap');
-      const url = await subirImagen(file, docRef.id, (pct) => {
-        $('add-upload-progress').style.width = pct + '%';
+    const ref = await db.collection('machines').add(doc);
+
+    let urlFinal = FOTO.add.delCatalogo || null;
+    if (FOTO.add.blob) {
+      const barra = $('add-progress');
+      barra.classList.remove('hidden');
+      urlFinal = await subirImagen(FOTO.add.blob, ref.id, (p) => {
+        barra.querySelector('i').style.width = p + '%';
       });
-      await docRef.update({ imagen_url: url });
+      await ref.update({ imagen_url: urlFinal });
     }
 
-    hide('modal-add');
-    showToast('Máquina agregada', modelo, 'success');
+    recordarModelo(modelo, urlFinal, carac);
+    registrarActividad('alta', {
+      maquinaId: ref.id, modelo, estado,
+      titulo: estado === 'entrega_inmediata' ? 'Nueva máquina disponible' : 'Nueva máquina cargada',
+      cuerpo: `${modelo} — ${ESTADO_LABEL[estado]}`
+    });
+
+    cerrarHoja('sheet-add');
+    toast('Máquina agregada', modelo, 'success');
+    haptic([12, 50, 12]);
   } catch (err) {
-    showErr('add-error', 'Error: ' + err.message);
+    console.error(err);
+    mostrarError('add-error', mensajeError(err));
   }
-  setBtn('add-submit-btn', false);
+  cargando('add-submit', false);
 });
 
-// ── F) EDITAR MÁQUINA ─────────────────────────────
-function openEditModal(id) {
+/* ── Edición ────────────────────────────────────────────────── */
+
+function abrirEditar(m) {
   if (!isAdmin) return;
-  activeEditId = id;
-  const m = [...caminoData, ...inmediataData, ...vendidasData].find(x => x.id === id);
-  if (!m) return;
-  const isVendida = m.estado === 'vendida_instalada';
-  clearErr('edit-error');
-  $('edit-machine-id').value = id;
+  limpiarError('edit-error');
+  FOTO.edit = { blob: null, previa: null, delCatalogo: null };
+
+  $('edit-id').value = m.id;
   $('edit-modelo').value = m.modelo || '';
   $('edit-caracteristicas').value = m.caracteristicas || '';
   $('edit-notas').value = m.notas || '';
-  if (isVendida) {
-    $('edit-cliente').value = m.cliente || '';
-    $('edit-vendido-por').value = m.vendido_por || '';
-    show('edit-vendida-fields');
-  } else {
-    hide('edit-vendida-fields');
+  pintarFoto('edit', m.imagen_url || null);
+  $('edit-progress').classList.add('hidden');
+  $('edit-progress').querySelector('i').style.width = '0%';
+
+  const vendida = m.estado === 'vendida_instalada';
+  $('edit-sold-fields').classList.toggle('hidden', !vendida);
+  if (vendida) {
+    $('edit-cliente').value  = m.cliente || '';
+    $('edit-vendedor').value = m.vendido_por || '';
   }
-  hide('edit-upload-progress-wrap');
-  $('edit-img-preview-wrap').innerHTML = m.imagen_url
-    ? `<img src="${escHtml(m.imagen_url)}" style="width:100%;height:100%;object-fit:cover" />`
-    : `<div class="img-preview-placeholder"><span class="icon">📷</span><span>Sin imagen</span></div>`;
-  show('modal-edit');
+
+  abrirHoja('sheet-edit');
 }
-window.openEditModal = openEditModal;
 
-$('form-edit-machine').addEventListener('submit', async (e) => {
-  e.preventDefault(); clearErr('edit-error');
-  const id              = $('edit-machine-id').value;
-  const modelo          = $('edit-modelo').value.trim();
-  const caracteristicas = $('edit-caracteristicas').value.trim();
-  const notas           = $('edit-notas').value.trim();
-  const file            = $('edit-imagen').files[0];
-  if (!modelo || !caracteristicas) return;
+$('form-edit').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  limpiarError('edit-error');
 
-  const isVendida = vendidasData.some(x => x.id === id);
-  setBtn('edit-submit-btn', true);
+  const id = $('edit-id').value;
+  const m = buscarMaquina(id);
+  if (!m) return;
+
+  const modelo = $('edit-modelo').value.trim();
+  const carac  = $('edit-caracteristicas').value.trim();
+  const notas  = $('edit-notas').value.trim();
+  if (!modelo || !carac) return;
+
+  cargando('edit-submit', true);
   try {
-    const updates = {
-      modelo, caracteristicas, notas,
+    const cambios = {
+      modelo, caracteristicas: carac, notas,
       actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
     };
-    if (isVendida) {
-      updates.cliente     = $('edit-cliente').value.trim();
-      updates.vendido_por = $('edit-vendido-por').value.trim();
+    if (m.estado === 'vendida_instalada') {
+      cambios.cliente     = $('edit-cliente').value.trim() || null;
+      cambios.vendido_por = $('edit-vendedor').value.trim() || null;
     }
-    if (file) {
-      show('edit-upload-progress-wrap');
-      const url = await subirImagen(file, id, (pct) => {
-        $('edit-upload-progress').style.width = pct + '%';
+
+    if (FOTO.edit.blob) {
+      const barra = $('edit-progress');
+      barra.classList.remove('hidden');
+      cambios.imagen_url = await subirImagen(FOTO.edit.blob, id, (p) => {
+        barra.querySelector('i').style.width = p + '%';
       });
-      updates.imagen_url = url;
+    } else if (FOTO.edit.delCatalogo) {
+      cambios.imagen_url = FOTO.edit.delCatalogo;
     }
-    await db.collection('machines').doc(id).update(updates);
-    hide('modal-edit');
-    showToast('Cambios guardados', modelo, 'success');
+
+    await db.collection('machines').doc(id).update(cambios);
+    recordarModelo(modelo, cambios.imagen_url || m.imagen_url, carac);
+
+    cerrarHoja('sheet-edit');
+    toast('Cambios guardados', modelo, 'success');
+    haptic();
   } catch (err) {
-    showErr('edit-error', 'Error: ' + err.message);
+    console.error(err);
+    mostrarError('edit-error', mensajeError(err));
   }
-  setBtn('edit-submit-btn', false);
+  cargando('edit-submit', false);
 });
 
-// ── G) CAMBIAR ESTADO LOGÍSTICO ───────────────────
-function openStateModal(id) {
+/* ── Estado logístico ───────────────────────────────────────── */
+
+const TRANSICIONES = {
+  pedido:            [{ a: 'embarcado',         ico: '🚢', t: 'Marcar como embarcada', d: 'La máquina salió y está en tránsito' }],
+  embarcado:         [{ a: 'entrega_inmediata', ico: '🏭', t: 'Llegó a planta',        d: 'Queda disponible para entrega inmediata' }],
+  entrega_inmediata: [{ a: 'vendida_instalada', ico: '✅', t: 'Instalada y entregada', d: 'Pasa al histórico de vendidas' }]
+};
+
+function abrirEstado(m) {
   if (!isAdmin) return;
-  activeStateId = id;
-  const m = [...caminoData, ...inmediataData].find(x => x.id === id);
-  if (!m) return;
-  $('modal-state-info').textContent = `${m.modelo} — Estado actual: ${estadoLabel(m.estado)}`;
-  clearErr('state-error');
+  _idEstado = m.id;
+  limpiarError('state-error');
+  $('state-sum').innerHTML = resumenHtml(m);
 
-  const transitions = {
-    pedido:            [{ estado:'embarcado',         icon:'🚢', title:'Marcar como Embarcada',       desc:'La máquina está en tránsito' }],
-    embarcado:         [{ estado:'entrega_inmediata',  icon:'🏭', title:'Llegó a Planta',               desc:'Disponible para entrega inmediata' }],
-    entrega_inmediata: [{ estado:'vendida_instalada', icon:'✅',
-      title:'Instalar y Entregar',
-      desc: m.cliente ? `Entregada a ${m.cliente}` : 'Marcar como vendida e instalada' }],
-  };
-
-  const opts = transitions[m.estado] || [];
-  const container = $('state-options');
-  container.innerHTML = '';
+  const opts = TRANSICIONES[m.estado] || [];
+  const cont = $('state-list');
 
   if (!opts.length) {
-    container.innerHTML = '<p class="text-muted" style="font-size:.875rem">No hay transiciones disponibles.</p>';
+    cont.innerHTML = `<p style="font-size:.85rem;color:var(--text-3);text-align:center;padding:1.5rem 0">
+      No hay transiciones disponibles desde este estado.</p>`;
   } else {
-    opts.forEach(op => {
-      const btn = document.createElement('button');
-      btn.className = 'state-option-btn';
-      btn.innerHTML = `<span class="icon">${op.icon}</span><div><strong>${op.title}</strong><span>${op.desc}</span></div>`;
-      btn.addEventListener('click', () => changeState(id, op.estado, m));
-      container.appendChild(btn);
+    cont.innerHTML = opts.map((o) => {
+      const desc = (o.a === 'vendida_instalada' && m.cliente) ? `Entregada a ${m.cliente}` : o.d;
+      return `<button class="state-opt" data-to="${o.a}">
+        <span class="so-ico">${o.ico}</span>
+        <span style="flex:1"><strong>${esc(o.t)}</strong><span>${esc(desc)}</span></span>
+        <svg class="so-arrow" style="width:16px;height:16px"><use href="#i-right"/></svg>
+      </button>`;
+    }).join('');
+
+    cont.querySelectorAll('.state-opt').forEach((b) => {
+      b.addEventListener('click', () => cambiarEstado(m, b.dataset.to));
     });
   }
-  show('modal-state');
+  abrirHoja('sheet-state');
 }
-window.openStateModal = openStateModal;
 
-async function changeState(id, newState, m) {
-  const updates = {
-    estado: newState,
-    actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
-  };
-  if (newState === 'embarcado')        updates.fecha_embarque = firebase.firestore.FieldValue.serverTimestamp();
-  if (newState === 'entrega_inmediata') updates.fecha_llegada  = firebase.firestore.FieldValue.serverTimestamp();
+async function cambiarEstado(m, nuevo) {
+  if (m.estado === 'entrega_inmediata' && nuevo === 'vendida_instalada' && !m.cliente) {
+    limpiarError('state-error');
+    mostrarError('state-error', 'Registrá primero la venta: falta el cliente.');
+    return;
+  }
+
+  const ahora = firebase.firestore.FieldValue.serverTimestamp();
+  const cambios = { estado: nuevo, actualizado_en: ahora };
+  if (nuevo === 'embarcado')         cambios.fecha_embarque = ahora;
+  if (nuevo === 'entrega_inmediata') cambios.fecha_llegada  = ahora;
+  if (nuevo === 'vendida_instalada' && !m.fecha_venta) cambios.fecha_venta = ahora;
+
   try {
-    await db.collection('machines').doc(id).update(updates);
-    hide('modal-state');
-    showToast('Estado actualizado', `${m.modelo} → ${estadoLabel(newState)}`, 'success');
+    await db.collection('machines').doc(m.id).update(cambios);
+
+    const avisos = {
+      embarcado:         { tipo: 'embarcado', titulo: 'Máquina embarcada',      cuerpo: `${m.modelo} está en tránsito` },
+      entrega_inmediata: { tipo: 'llegada',   titulo: 'Disponible para vender', cuerpo: `${m.modelo} llegó a planta — entrega inmediata` },
+      vendida_instalada: { tipo: 'instalada', titulo: 'Máquina entregada',      cuerpo: `${m.modelo} fue instalada${m.cliente ? ' en ' + m.cliente : ''}` }
+    };
+    const av = avisos[nuevo];
+    if (av) registrarActividad(av.tipo, { maquinaId: m.id, modelo: m.modelo, estado: nuevo, titulo: av.titulo, cuerpo: av.cuerpo });
+
+    cerrarHoja('sheet-state');
+    toast('Estado actualizado', `${m.modelo} → ${ESTADO_LABEL[nuevo]}`, 'success');
+    haptic([12, 50, 12]);
   } catch (err) {
-    showErr('state-error', 'Error: ' + err.message);
+    console.error(err);
+    mostrarError('state-error', mensajeError(err));
   }
 }
 
-// ── H) REGISTRAR VENTA ────────────────────────────
-function openSellModal(id, editing = false) {
-  activeSellId = id;
-  const m = [...caminoData, ...inmediataData].find(x => x.id === id);
-  $('modal-sell-title').textContent = editing ? `Editar Venta — ${m?.modelo || ''}` : `Registrar Venta — ${m?.modelo || ''}`;
-  $('modal-sell-info').textContent  = `Estado actual: ${estadoLabel(m?.estado)}`;
-  $('form-sell').reset(); clearErr('sell-error');
-  if (editing && m) {
+/* ── Venta ──────────────────────────────────────────────────── */
+
+function abrirVenta(m, editando) {
+  _idVenta = m.id;
+  $('form-sell').reset();
+  limpiarError('sell-error');
+  $('sell-title').textContent = editando ? 'Editar venta' : 'Registrar venta';
+  $('sell-sum').innerHTML = resumenHtml(m);
+  if (editando) {
     $('sell-cliente').value = m.cliente || '';
-    $('sell-notas').value   = m.notas   || '';
+    $('sell-notas').value   = m.notas || '';
   }
-  show('modal-sell');
+  abrirHoja('sheet-sell');
 }
-window.openSellModal = openSellModal;
 
 $('form-sell').addEventListener('submit', async (e) => {
-  e.preventDefault(); if (!activeSellId) return; clearErr('sell-error');
+  e.preventDefault();
+  if (!_idVenta) return;
+  limpiarError('sell-error');
+
+  const m = buscarMaquina(_idVenta);
   const cliente = $('sell-cliente').value.trim();
   const notas   = $('sell-notas').value.trim();
-  if (!cliente) return;
-  setBtn('sell-submit-btn', true);
+  if (!cliente || !m) return;
+
+  const yaEstaba = !!m.cliente;
+  cargando('sell-submit', true);
   try {
-    await db.collection('machines').doc(activeSellId).update({
+    await db.collection('machines').doc(_idVenta).update({
       cliente, notas,
       vendido_por: currentVendor?.nombre || currentUser.email,
       fecha_venta: firebase.firestore.FieldValue.serverTimestamp(),
       actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
     });
-    hide('modal-sell');
-    showToast('Venta registrada', `Vendida a ${cliente} — se instalará cuando el admin cierre la logística`, 'success');
-    activeSellId = null;
-  } catch (err) {
-    showErr('sell-error', 'Error: ' + err.message);
-  }
-  setBtn('sell-submit-btn', false);
-});
 
-// ── H2) CANCELAR VENTA ───────────────────────────
-function cancelSale(id) {
-  const m = [...caminoData, ...inmediataData].find(x => x.id === id);
-  if (!m) return;
-  if (!window.confirm(`¿Cancelar la venta de "${m.modelo}" a ${m.cliente}?\nLa máquina quedará disponible nuevamente.`)) return;
-  db.collection('machines').doc(id).update({
-    cliente: null, vendido_por: null, fecha_venta: null,
-    actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => showToast('Venta cancelada', `${m.modelo} vuelve a estar disponible`, 'success'))
-    .catch(err => showToast('Error', err.message, 'error'));
-}
-window.cancelSale = cancelSale;
-
-// ── I) PUSH NOTIFICATIONS ─────────────────────────
-async function registerPush() {
-  if (!currentUser) return;
-  const token = await inicializarPush();
-  if (token) await guardarTokenFCM(currentUser.uid, token);
-}
-
-$('bell-btn').addEventListener('click', async () => {
-  notifCount = 0; hide('notif-badge');
-  if (Notification.permission !== 'granted') {
-    await registerPush();
-    if (Notification.permission === 'granted')
-      showToast('Notificaciones activadas', 'Recibirás alertas de cambios en el stock', 'success');
-  }
-});
-
-// ── J) TOGGLE VENDIDAS ────────────────────────────
-$('toggle-vendidas-header').addEventListener('click', () => {
-  const w = $('tabla-vendidas-wrapper');
-  const i = $('toggle-vendidas-icon');
-  const open = w.classList.contains('hidden');
-  if (open) { show('tabla-vendidas-wrapper'); i.textContent = '▲'; i.classList.add('open'); }
-  else      { hide('tabla-vendidas-wrapper'); i.textContent = '▼'; i.classList.remove('open'); }
-});
-
-// ── K) CERRAR MODALES ─────────────────────────────
-document.querySelectorAll('[data-close-modal]').forEach(btn => {
-  btn.addEventListener('click', () => hide(btn.dataset.closeModal));
-});
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
-});
-
-// ── Helper: label legible del estado ─────────────
-function estadoLabel(e) {
-  return { pedido:'Pedido', embarcado:'Embarcado', entrega_inmediata:'Entrega Inmediata', vendida_instalada:'Vendida e Instalada' }[e] || e;
-}
-
-// ── L) ELIMINAR MÁQUINA (admin) ───────────────────
-function confirmDelete(id) {
-  if (!isAdmin) return;
-  const m = [...caminoData, ...inmediataData, ...vendidasData].find(x => x.id === id);
-  if (!m) return;
-  if (!window.confirm(`¿Eliminar "${m.modelo}"? Esta acción no se puede deshacer.`)) return;
-  deleteMachine(id, m.imagen_url);
-}
-window.confirmDelete = confirmDelete;
-
-async function deleteMachine(id, imagenUrl) {
-  try {
-    await db.collection('machines').doc(id).delete();
-    if (imagenUrl) {
-      try { await storage.ref('machines/' + id + '/main').delete(); } catch (e) { /* imagen ya eliminada */ }
+    if (!yaEstaba) {
+      registrarActividad('venta', {
+        maquinaId: m.id, modelo: m.modelo, estado: m.estado,
+        titulo: 'Venta registrada',
+        cuerpo: `${m.modelo} — ${cliente}`
+      });
     }
-    showToast('Máquina eliminada', '', 'success');
+
+    cerrarHoja('sheet-sell');
+    toast(yaEstaba ? 'Venta actualizada' : 'Venta registrada',
+          yaEstaba ? m.modelo : `${m.modelo} para ${cliente}`, 'success');
+    haptic([14, 60, 14]);
+    _idVenta = null;
   } catch (err) {
-    showToast('Error al eliminar', err.message, 'error');
+    console.error(err);
+    mostrarError('sell-error', mensajeError(err));
+  }
+  cargando('sell-submit', false);
+});
+
+async function cancelarVenta(m) {
+  const ok = await confirmar({
+    titulo: '¿Cancelar la venta?',
+    texto: `"${m.modelo}" figura vendida a ${m.cliente}. Al cancelar vuelve a quedar disponible para todos.`,
+    ok: 'Sí, cancelar venta',
+    glifo: '↩️'
+  });
+  if (!ok) return;
+
+  try {
+    await db.collection('machines').doc(m.id).update({
+      cliente: null, vendido_por: null, fecha_venta: null,
+      actualizado_en: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    registrarActividad('venta_cancelada', {
+      maquinaId: m.id, modelo: m.modelo, estado: m.estado,
+      titulo: 'Venta cancelada',
+      cuerpo: `${m.modelo} vuelve a estar disponible`
+    });
+    toast('Venta cancelada', `${m.modelo} vuelve a estar disponible`, 'success');
+  } catch (err) {
+    toast('No se pudo cancelar', mensajeError(err), 'error');
   }
 }
+
+/* ── Baja ───────────────────────────────────────────────────── */
+
+async function borrarMaquina(m) {
+  if (!isAdmin) return;
+  const ok = await confirmar({
+    titulo: `¿Eliminar "${m.modelo}"?`,
+    texto: 'Se borra del stock junto con su foto. Esta acción no se puede deshacer.',
+    ok: 'Eliminar',
+    glifo: '🗑️'
+  });
+  if (!ok) return;
+
+  try {
+    await db.collection('machines').doc(m.id).delete();
+    if (m.imagen_url) borrarImagen(m.id);
+    registrarActividad('baja', {
+      maquinaId: m.id, modelo: m.modelo, estado: m.estado,
+      titulo: 'Máquina eliminada', cuerpo: m.modelo
+    });
+    toast('Máquina eliminada', m.modelo, 'success');
+  } catch (err) {
+    toast('No se pudo eliminar', mensajeError(err), 'error');
+  }
+}
+
+function mensajeError(err) {
+  if (err?.code === 'permission-denied') return 'No tenés permiso para hacer esto.';
+  if (err?.code === 'unavailable')       return 'Sin conexión. Se va a sincronizar cuando vuelva internet.';
+  return err?.message || 'Ocurrió un error inesperado.';
+}
+
+/* ── Fotos ──────────────────────────────────────────────────── */
+
+function pintarFoto(cual, url) {
+  const cont = $(cual + '-photo');
+  if (url) {
+    cont.innerHTML = `<img src="${esc(url)}" alt="Vista previa" />` +
+      (FOTO[cual].delCatalogo === url ? `<span class="photo-badge">✨ Del catálogo</span>` : '');
+  } else {
+    cont.innerHTML = `<div class="photo-empty"><span class="pe-glyph">📷</span><span>Sin foto</span></div>`;
+  }
+}
+
+async function tomarFoto(cual, file) {
+  if (!file) return;
+  const nota = $(cual === 'add' ? 'add-photo-note' : 'edit-photo-note');
+  if (nota) { nota.textContent = 'Optimizando…'; nota.className = 'hint'; }
+
+  try {
+    const r = await comprimirImagen(file);
+    FOTO[cual].blob = r.blob;
+    FOTO[cual].delCatalogo = null;
+
+    if (FOTO[cual].previa) URL.revokeObjectURL(FOTO[cual].previa);
+    FOTO[cual].previa = URL.createObjectURL(r.blob);
+    pintarFoto(cual, FOTO[cual].previa);
+
+    if (nota) {
+      const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+      if (r.final < r.original * 0.9) {
+        nota.textContent = `${kb(r.original)} → ${kb(r.final)}`;
+        nota.className = 'hint is-good';
+      } else {
+        nota.textContent = kb(r.final);
+      }
+    }
+  } catch (err) {
+    console.error('Compresión:', err);
+    FOTO[cual].blob = file;
+    if (nota) nota.textContent = '';
+  }
+}
+
+['add', 'edit'].forEach((cual) => {
+  $(`${cual}-photo-cam`).addEventListener('click', () => $(`${cual}-file-cam`).click());
+  $(`${cual}-photo-lib`).addEventListener('click', () => $(`${cual}-file-lib`).click());
+  $(`${cual}-photo`).addEventListener('click', () => $(`${cual}-file-lib`).click());
+  $(`${cual}-file-cam`).addEventListener('change', (e) => tomarFoto(cual, e.target.files[0]));
+  $(`${cual}-file-lib`).addEventListener('change', (e) => tomarFoto(cual, e.target.files[0]));
+});
+
+/* ── Catálogo: sugerencias en vivo ──────────────────────────── */
+
+let _tSug = null;
+$('add-modelo').addEventListener('input', (e) => {
+  clearTimeout(_tSug);
+  const v = e.target.value;
+  _tSug = setTimeout(() => {
+    pintarSugerencias('add-suggest', v, aplicarDelCatalogo);
+  }, 220);
+});
+
+function aplicarDelCatalogo(entrada) {
+  if (!entrada) return;
+  $('add-modelo').value = entrada.modelo;
+  if (entrada.caracteristicas && !$('add-caracteristicas').value.trim()) {
+    $('add-caracteristicas').value = entrada.caracteristicas;
+  }
+  if (entrada.imagen_url && !FOTO.add.blob) {
+    FOTO.add.delCatalogo = entrada.imagen_url;
+    pintarFoto('add', entrada.imagen_url);
+    $('add-photo-note').textContent = 'Foto reutilizada';
+    $('add-photo-note').className = 'hint is-good';
+  }
+  $('add-suggest').innerHTML = '';
+  haptic();
+  toast('Completado desde el catálogo', entrada.modelo, 'success', 2600);
+}
+
+/* ── Dictado ────────────────────────────────────────────────── */
+
+$('add-voice').addEventListener('click', async () => {
+  const texto = await dictar();
+  if (!texto) return;
+
+  const r = parsearDictado(texto);
+  if (!r.modelo) {
+    toast('No te entendí', 'Probá de nuevo diciendo el modelo primero.', 'error');
+    return;
+  }
+
+  $('add-modelo').value = r.modelo;
+  if (r.caracteristicas) $('add-caracteristicas').value = r.caracteristicas;
+
+  if (r.estado) {
+    $('add-estado').querySelectorAll('.chip')
+      .forEach((c) => c.classList.toggle('is-on', c.dataset.e === r.estado));
+  }
+
+  // Si el modelo ya existe en el catálogo, completar foto y características solo.
+  const exacto = modeloExacto(r.modelo);
+  const cercano = exacto || buscarModelo(r.modelo, 1)[0];
+  if (cercano) {
+    aplicarDelCatalogo(cercano);
+    if (r.caracteristicas) $('add-caracteristicas').value = r.caracteristicas;
+    if (r.modelo) $('add-modelo').value = r.modelo;
+  } else {
+    pintarSugerencias('add-suggest', r.modelo, aplicarDelCatalogo);
+  }
+
+  haptic([12, 40, 12]);
+  const partes = [];
+  if (r.estado) partes.push(ESTADO_LABEL[r.estado]);
+  if (cercano) partes.push('foto del catálogo');
+  toast('Listo', partes.length ? `Cargué: ${partes.join(' · ')}` : 'Revisá los datos y confirmá.', 'success');
+});
+
+if (!soportaVoz()) $('add-voice').classList.add('hidden');
+
+/* ── Búsqueda y filtros ─────────────────────────────────────── */
+
+let _tBusca = null;
+$('search').addEventListener('input', (e) => {
+  const v = e.target.value;
+  $('search-clear').classList.toggle('hidden', !v);
+  clearTimeout(_tBusca);
+  _tBusca = setTimeout(() => { _busqueda = norm(v).trim(); render(); }, 160);
+});
+
+$('search-clear').addEventListener('click', () => {
+  $('search').value = '';
+  $('search-clear').classList.add('hidden');
+  _busqueda = '';
+  render();
+  $('search').focus();
+});
+
+$('btn-search').addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: menosMovimiento() ? 'auto' : 'smooth' });
+  setTimeout(() => $('search').focus(), 260);
+});
+
+$('chips').addEventListener('click', (ev) => {
+  const c = ev.target.closest('.chip');
+  if (!c) return;
+  aplicarFiltro(c.dataset.f);
+});
+
+/* Cada estadística de la portada es también un filtro. */
+const STAT_FILTRO = { camino: 'camino', inmediata: 'entrega_inmediata', vendidas: 'vendida_instalada' };
+
+function aplicarFiltro(f) {
+  _filtro = f;
+  $('chips').querySelectorAll('.chip').forEach((x) => x.classList.toggle('is-on', x.dataset.f === f));
+  document.querySelectorAll('.stat').forEach((s) => {
+    s.classList.toggle('is-on', STAT_FILTRO[s.dataset.k] === f);
+  });
+  haptic();
+  render();
+}
+
+document.querySelectorAll('.stat').forEach((s) => {
+  s.addEventListener('click', () => {
+    const destino = STAT_FILTRO[s.dataset.k];
+    aplicarFiltro(_filtro === destino ? 'todas' : destino);
+    if (_filtro !== 'todas') {
+      $('main').scrollIntoView({ behavior: menosMovimiento() ? 'auto' : 'smooth', block: 'start' });
+    }
+  });
+});
+
+/* ── Tabla de vendidas ──────────────────────────────────────── */
+
+function abrirVendidas(forzar) {
+  const w = $('vendidas-wrap');
+  const b = $('toggle-vendidas');
+  const abierta = !w.classList.contains('hidden');
+  const nueva = forzar === undefined ? !abierta : forzar;
+  if (nueva === abierta) return;
+
+  w.classList.toggle('hidden', !nueva);
+  w.classList.toggle('is-open', nueva);
+  b.setAttribute('aria-expanded', String(nueva));
+}
+
+$('toggle-vendidas').addEventListener('click', () => { abrirVendidas(); haptic(); });
+
+/* ── Cabecera pegajosa ──────────────────────────────────────── */
+
+/* Un IntersectionObserver no sirve acá: el toolbar es sticky y sigue
+   completamente visible aunque esté pegado. Comparamos su posición real. */
+let _tickScroll = false;
+window.addEventListener('scroll', () => {
+  if (_tickScroll) return;
+  _tickScroll = true;
+  requestAnimationFrame(() => {
+    const tb = $('toolbar');
+    const alto = $('app-header').getBoundingClientRect().height;
+    tb.classList.toggle('is-stuck', tb.getBoundingClientRect().top <= alto + 1);
+    _tickScroll = false;
+  });
+}, { passive: true });
+
+/* ── Menú de usuario ────────────────────────────────────────── */
+
+function alternarMenu(forzar) {
+  const m = $('user-menu');
+  const abierto = !m.classList.contains('hidden');
+  const nuevo = forzar === undefined ? !abierto : forzar;
+  m.classList.toggle('hidden', !nuevo);
+  if (nuevo) actualizarEstadoNotif();
+}
+
+$('btn-avatar').addEventListener('click', (e) => { e.stopPropagation(); alternarMenu(); haptic(); });
+
+document.addEventListener('click', (e) => {
+  if (!$('user-menu').classList.contains('hidden') &&
+      !e.target.closest('#user-menu') && !e.target.closest('#btn-avatar')) {
+    alternarMenu(false);
+  }
+});
+
+$('um-logout').addEventListener('click', async () => {
+  alternarMenu(false);
+  const ok = await confirmar({
+    titulo: '¿Cerrar sesión?',
+    texto: 'Vas a tener que ingresar de nuevo con tu email y contraseña.',
+    ok: 'Cerrar sesión', glifo: '👋'
+  });
+  if (!ok) return;
+  if (currentUser) await borrarTokenFCM(currentUser.uid);
+  auth.signOut();
+});
+
+$('um-notif').addEventListener('click', () => { alternarMenu(false); abrirPanelNotif(); });
+
+function actualizarEstadoNotif() {
+  const etiquetas = {
+    granted: 'Activadas',
+    default: 'Desactivadas',
+    denied: 'Bloqueadas',
+    'ios-necesita-instalar': 'Instalá la app',
+    unsupported: 'No disponibles'
+  };
+  const el = $('um-notif-val');
+  if (el) el.textContent = etiquetas[estadoPermiso()] || '—';
+}
+
+/* ── Tema ───────────────────────────────────────────────────── */
+
+const TEMAS = ['sistema', 'claro', 'oscuro'];
+const TEMA_ATTR = { sistema: null, claro: 'light', oscuro: 'dark' };
+
+function aplicarTema(t) {
+  const attr = TEMA_ATTR[t];
+  if (attr) document.documentElement.setAttribute('data-theme', attr);
+  else      document.documentElement.removeAttribute('data-theme');
+
+  localStorage.setItem('pm-theme', attr || '');
+
+  const oscuro = attr === 'dark' ||
+    (!attr && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.style.background = oscuro ? '#08080a' : '#f2f2f4';
+  $('meta-theme')?.setAttribute('content', oscuro ? '#08080a' : '#f2f2f4');
+
+  $('um-theme-val').textContent = t.charAt(0).toUpperCase() + t.slice(1);
+  $('um-theme-icon')?.setAttribute('href', oscuro ? '#i-moon' : '#i-sun');
+}
+
+(function temaInicial() {
+  const g = localStorage.getItem('pm-theme');
+  aplicarTema(g === 'dark' ? 'oscuro' : g === 'light' ? 'claro' : 'sistema');
+})();
+
+$('um-theme').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const actual = $('um-theme-val').textContent.toLowerCase();
+  const i = TEMAS.indexOf(actual);
+  aplicarTema(TEMAS[(i + 1) % TEMAS.length]);
+  haptic();
+});
+
+/* ── Notificaciones: campana ────────────────────────────────── */
+
+$('btn-bell').addEventListener('click', () => { abrirPanelNotif(); haptic(); });
+$('np-close').addEventListener('click', cerrarPanelNotif);
+$('np-mark').addEventListener('click', () => {
+  fijarUltimaLectura(Date.now());
+  pintarPanel();
+  toast('Todo al día', '', 'success', 1800);
+});
+
+/* ── Instalación ────────────────────────────────────────────── */
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _promptInstall = e;
+  if (localStorage.getItem('pm-install-no') !== '1' && !estaInstalada()) {
+    // Solo con sesión iniciada: encima del login sería una invitación a
+    // instalar algo que el vendedor todavía no vio.
+    setTimeout(() => {
+      if (currentUser) $('install-cta').classList.remove('hidden');
+    }, 9000);
+  }
+});
+
+$('install-go').addEventListener('click', () => lanzarInstalacion());
+$('install-no').addEventListener('click', () => {
+  localStorage.setItem('pm-install-no', '1');
+  $('install-cta').classList.add('hidden');
+});
+$('um-install').addEventListener('click', () => { alternarMenu(false); lanzarInstalacion(); });
+
+async function lanzarInstalacion() {
+  $('install-cta').classList.add('hidden');
+  if (estaInstalada()) { toast('Ya está instalada', 'Estás usando la app instalada.', 'info'); return; }
+
+  if (_promptInstall) {
+    _promptInstall.prompt();
+    const { outcome } = await _promptInstall.userChoice;
+    _promptInstall = null;
+    if (outcome === 'accepted') toast('¡Instalada!', 'Ya la tenés en la pantalla de inicio.', 'success');
+    return;
+  }
+
+  if (esIOS) {
+    toast('Cómo instalarla en iPhone',
+          'Tocá Compartir abajo en Safari y elegí "Agregar a pantalla de inicio".', 'info', 8000);
+  } else {
+    toast('Instalación manual',
+          'Abrí el menú del navegador (⋮) y elegí "Instalar app" o "Agregar a pantalla de inicio".', 'info', 8000);
+  }
+}
+
+window.addEventListener('appinstalled', () => {
+  $('install-cta').classList.add('hidden');
+  localStorage.setItem('pm-install-no', '1');
+});
+
+/* ── Conexión ───────────────────────────────────────────────── */
+
+let _desdeCache = false;
+let _tCache = null;
+
+/**
+ * `navigator.onLine` solo dice si hay una interfaz de red: en la planta, con
+ * wifi pero sin salida a internet, sigue en true. Que los datos vengan del
+ * caché de Firestore es la señal real. Se espera unos segundos antes de
+ * declararlo, porque el primer snapshot siempre llega del caché.
+ */
+function marcarCache(fromCache) {
+  if (!fromCache) {
+    clearTimeout(_tCache); _tCache = null;
+    if (_desdeCache) { _desdeCache = false; pintarConexion(); }
+    return;
+  }
+  if (_desdeCache || _tCache) return;
+  _tCache = setTimeout(() => {
+    _tCache = null; _desdeCache = true; pintarConexion();
+  }, 4000);
+}
+
+function pintarConexion() {
+  const conectado = navigator.onLine && !_desdeCache;
+  $('live-dot').classList.toggle('is-off', !conectado);
+  $('live-label').textContent = conectado ? 'En vivo' : 'Sin conexión';
+}
+
+window.addEventListener('online', () => {
+  pintarConexion();
+  toast('Conexión restablecida', 'Sincronizando…', 'success', 2200);
+});
+window.addEventListener('offline', () => {
+  clearTimeout(_tCache); _tCache = null; _desdeCache = true;
+  pintarConexion();
+  toast('Sin conexión', 'Podés seguir viendo el stock guardado.', 'info', 3200);
+});
+pintarConexion();
+
+/* ── Cierre de hojas ────────────────────────────────────────── */
+
+document.querySelectorAll('[data-close]').forEach((b) => {
+  b.addEventListener('click', () => cerrarHoja(b.dataset.close));
+});
+
+document.querySelectorAll('.overlay').forEach((ov) => {
+  ov.addEventListener('click', (e) => {
+    if (e.target !== ov) return;
+    if (ov.id === 'sheet-confirm') _resolverConfirm(false);
+    else cerrarHoja(ov.id);
+  });
+});
+
+$('confirm-ok').addEventListener('click', () => _resolverConfirm(true));
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('user-menu').classList.contains('hidden')) { alternarMenu(false); return; }
+  if (!$('notif-panel').classList.contains('hidden')) { cerrarPanelNotif(); return; }
+  if (!$('sheet-confirm').classList.contains('hidden')) { _resolverConfirm(false); return; }
+  cerrarHojaArriba();
+});
+
+/* ── Accesos directos del ícono de la app ───────────────────── */
+
+/* Los shortcuts del manifest abren la app ya filtrada o en las novedades. */
+function aplicarAtajoDeUrl() {
+  const p = new URLSearchParams(location.search);
+  const f = p.get('f');
+  const panel = p.get('panel');
+  if (!f && !panel) return;
+
+  if (f && $('chips').querySelector(`.chip[data-f="${CSS.escape(f)}"]`)) aplicarFiltro(f);
+  if (panel === 'novedades') setTimeout(abrirPanelNotif, 500);
+
+  history.replaceState(null, '', location.pathname);
+}
+
+/* Se corre una sola vez, cuando ya hay sesión y datos en pantalla. */
+let _atajoHecho = false;
+const _obsAtajo = setInterval(() => {
+  if (_atajoHecho || $('app').classList.contains('hidden')) return;
+  _atajoHecho = true;
+  clearInterval(_obsAtajo);
+  aplicarAtajoDeUrl();
+}, 300);
+setTimeout(() => clearInterval(_obsAtajo), 15000);
+
+/* Si el splash queda colgado por un error de red, sacarlo igual. */
+setTimeout(() => $('boot')?.classList.add('is-gone'), 6000);
