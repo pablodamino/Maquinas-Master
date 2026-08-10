@@ -125,10 +125,19 @@ function catalogoCompleto() {
   return [...extra, ...web];
 }
 
+/**
+ * Foto a mostrar. Cada variante puede traer la suya —una 3000×1500 y una
+ * 6000×1500 no se parecen en nada— y si no, se usa la de la serie.
+ */
+const fotoDe = (p, v) => (v && v.foto) || p.foto || (p.variantes[0] && p.variantes[0].foto) || null;
+
 /** Portada para las máquinas sin foto: no todas están publicadas. */
-const fotoHtml = (p, cls) => p.foto
-  ? `<img class="${cls}" src="${esc(p.foto)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">`
-  : `<span class="${cls} preset-sinfoto"><span>⚙</span></span>`;
+function fotoHtml(p, cls, v) {
+  const src = fotoDe(p, v);
+  return src
+    ? `<img class="${cls}" src="${esc(src)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">`
+    : `<span class="${cls} preset-sinfoto"><span>⚙</span></span>`;
+}
 
 /** 1500 → "1.5 kW" · 6000 → "6 kW" · 60000 → "60 kW" */
 function kW(w) {
@@ -206,10 +215,7 @@ function elegirSerie(id) {
   _pVar = _pSerie.variantes[0];
   _pPot = _pVar.potencias[0] || null;
 
-  const hero = $('preset-hero-media');
-  hero.innerHTML = _pSerie.foto
-    ? `<img id="preset-foto" src="${esc(_pSerie.foto)}" alt="${esc(_pSerie.serie)}">`
-    : `<span class="preset-sinfoto preset-sinfoto-hero"><span>⚙</span></span>`;
+  pintarHero();
   $('preset-serie').textContent = 'HSG ' + _pSerie.serie;
   $('preset-lema').textContent = _pSerie.lema || _pSerie.tipoTxt;
 
@@ -224,6 +230,14 @@ function elegirSerie(id) {
   haptic();
 }
 
+/** La portada sigue a la medida elegida, porque puede tener su propia foto. */
+function pintarHero() {
+  const src = fotoDe(_pSerie, _pVar);
+  $('preset-hero-media').innerHTML = src
+    ? `<img id="preset-foto" src="${esc(src)}" alt="${esc(_pSerie.serie)}">`
+    : `<span class="preset-sinfoto preset-sinfoto-hero"><span>⚙</span></span>`;
+}
+
 function pintarMedidas() {
   $('preset-medidas').innerHTML = _pSerie.variantes.map((v, i) => `
     <button type="button" class="chip${v === _pVar ? ' is-on' : ''}" data-i="${i}">
@@ -235,7 +249,7 @@ function pintarMedidas() {
       _pVar = _pSerie.variantes[parseInt(c.dataset.i, 10)];
       // Si la potencia elegida no existe en esta medida, tomar la más baja.
       if (!_pVar.potencias.includes(_pPot)) _pPot = _pVar.potencias[0] || null;
-      pintarMedidas(); pintarPotencias(); actualizarResumen(); haptic();
+      pintarHero(); pintarMedidas(); pintarPotencias(); actualizarResumen(); haptic();
     });
   });
 }
@@ -291,10 +305,11 @@ function aplicarPreset() {
   // nada que subir. Ventaja extra: al ser del mismo origen, la ficha
   // compartible puede dibujarla en el canvas sin problemas de CORS.
   FOTO.add.blob = null;
-  if (_pSerie.foto) {
-    FOTO.add.delCatalogo = _pSerie.foto;
+  const foto = fotoDe(_pSerie, _pVar);
+  if (foto) {
+    FOTO.add.delCatalogo = foto;
     FOTO.add.etiqueta = 'Catálogo HSG';
-    pintarFoto('add', _pSerie.foto);
+    pintarFoto('add', foto);
     $('add-photo-note').textContent = 'Foto del catálogo';
     $('add-photo-note').className = 'hint is-good';
   } else {

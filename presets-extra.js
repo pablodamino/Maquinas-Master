@@ -18,6 +18,8 @@
      foto      ruta a una imagen del repo, o null si no hay
      variantes cada medida disponible, con sus potencias en watts
                  (dejar potencias en [] si la máquina no se mide en watts)
+                 cada variante puede traer su propia `foto`, que pisa a la
+                 de la serie: una 3000×1500 y una 6000×1500 no se parecen
    ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -28,7 +30,7 @@ const PRESETS_EXTRA = [
     tipo: 'chapa',
     tipoTxt: 'Corte de chapa',
     lema: 'Versión sin cabina. El modelo más vendido de HSG. No figura en el catálogo web del fabricante.',
-    foto: null,
+    foto: 'catalogo/gc-3015.webp',
     url: '',
     // El código es G + medida de mesa + C, igual que el resto de HSG
     // (G3015X, G3015H, G3015T…). Confirmado por el vendedor.
@@ -36,6 +38,7 @@ const PRESETS_EXTRA = [
       {
         modelo: 'G3015C',
         medida: '3000 × 1500 mm',
+        foto: 'catalogo/gc-3015.webp',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
           'Área de trabajo (L*W)': '3000mm*1500mm',
@@ -45,6 +48,7 @@ const PRESETS_EXTRA = [
       {
         modelo: 'G6015C',
         medida: '6000 × 1500 mm',
+        foto: 'catalogo/gc-6015.webp',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
           'Área de trabajo (L*W)': '6000mm*1500mm',
@@ -54,6 +58,8 @@ const PRESETS_EXTRA = [
       {
         modelo: 'G6025C',
         medida: '6000 × 2500 mm',
+        /* Comparte la foto de la 6015: solo cambia el ancho de mesa. */
+        foto: 'catalogo/gc-6015.webp',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
           'Área de trabajo (L*W)': '6000mm*2500mm',
