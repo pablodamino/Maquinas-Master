@@ -12,8 +12,11 @@
   <title>Stock — Pantógrafos Master</title>
 
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <!-- iOS aplica su propio redondeo, así que le pasamos la versión a sangre
+       completa: una PNG con esquinas transparentes le dejaría los bordes negros. -->
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png" />
   <link rel="stylesheet" href="styles.css?v=2" />
 
   <!-- Tema aplicado antes del primer pintado, para que no haya destello blanco. -->
