@@ -30,9 +30,11 @@ const PRESETS_EXTRA = [
     lema: 'Versión sin cabina. El modelo más vendido de HSG. No figura en el catálogo web del fabricante.',
     foto: null,
     url: '',
+    // El código es G + medida de mesa + C, igual que el resto de HSG
+    // (G3015X, G3015H, G3015T…). Confirmado por el vendedor.
     variantes: [
       {
-        modelo: 'GC 3015',
+        modelo: 'G3015C',
         medida: '3000 × 1500 mm',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
@@ -41,7 +43,7 @@ const PRESETS_EXTRA = [
         }
       },
       {
-        modelo: 'GC 6015',
+        modelo: 'G6015C',
         medida: '6000 × 1500 mm',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
@@ -50,7 +52,7 @@ const PRESETS_EXTRA = [
         }
       },
       {
-        modelo: 'GC 6025',
+        modelo: 'G6025C',
         medida: '6000 × 2500 mm',
         potencias: [1500, 3000, 6000, 12000],
         specs: {
