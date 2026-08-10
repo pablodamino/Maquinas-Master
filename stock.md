@@ -63,6 +63,7 @@ Cinco fallas encadenadas, cualquiera de ellas suficiente para romper todo:
 
 | Función | Cómo funciona | Archivo |
 |---|---|---|
+| **Carga rápida** | Catálogo del proveedor precargado: serie → medida → potencia, y la máquina queda cargada con foto y características sin escribir nada. | `presets.js`, `catalog.js` |
 | **Compartir ficha** | Compone la ficha en un `<canvas>` (1080×1350) y la manda por Web Share API → WhatsApp. Cascada de respaldos: imagen → texto → descarga → portapapeles. | `share.js` |
 | **Alta por voz** | `SpeechRecognition` en `es-AR`. Entiende modelo, características y estado ("compresor 500 litros, ya llegó"). Prellena y el usuario confirma. | `voice.js` |
 | **Foto automática** | Cada modelo cargado con foto queda en la colección `catalog`. Al escribir o dictar un modelo parecido, se completan foto y características solas. | `catalog.js` |
@@ -143,6 +144,32 @@ firebase deploy --only functions
 3. Para hacerlo admin: Firestore → `vendors` → su documento → `rol` = `admin`.
 
 ---
+
+## Carga rápida — el catálogo del proveedor
+
+`presets.js` trae las 15 series de HSG con sus 31 medidas y 167 combinaciones de
+medida y potencia, más la foto de cada máquina en `catalogo/`. Con eso, cargar una
+máquina son tres toques y cero escritura.
+
+Las potencias del sitio vienen como rangos (`3000W-20000W`); el generador las
+traduce a los escalones comerciales concretos que entran en ese rango.
+
+Las fotos se guardan en el repo en vez de enlazarse a HSG: no dependen de que el
+proveedor no cambie sus URLs, y al ser del mismo origen la ficha compartible puede
+dibujarlas en el canvas sin necesidad de configurar CORS.
+
+**Para actualizar cuando HSG cambie su línea de productos:**
+
+```
+node tools/actualizar-catalogo.js
+```
+
+Vuelve a bajar las fotos y reescribe `presets.js`. No tiene dependencias: solo
+Node 18 o superior. Después subí `VERSION` en `firebase-messaging-sw.js` para que
+se refresque el caché de los usuarios.
+
+Las series sin cuadro de especificaciones o sin foto en el sitio se omiten solas y
+quedan avisadas en la salida del comando.
 
 ## Cosas para saber
 

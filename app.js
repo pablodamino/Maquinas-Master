@@ -18,8 +18,8 @@ let _idEstado    = null;
 let _promptInstall = null;
 
 const FOTO = {
-  add:  { blob: null, previa: null, delCatalogo: null },
-  edit: { blob: null, previa: null, delCatalogo: null }
+  add:  { blob: null, previa: null, delCatalogo: null, etiqueta: null },
+  edit: { blob: null, previa: null, delCatalogo: null, etiqueta: null }
 };
 
 const todas = () => [...DATA.camino, ...DATA.inmediata, ...DATA.vendidas];
@@ -342,7 +342,7 @@ $('add-estado').addEventListener('click', (ev) => {
 $('fab').addEventListener('click', () => {
   $('form-add').reset();
   limpiarError('add-error');
-  FOTO.add = { blob: null, previa: null, delCatalogo: null };
+  FOTO.add = { blob: null, previa: null, delCatalogo: null, etiqueta: null };
   pintarFoto('add', null);
   $('add-photo-note').textContent = '';
   $('add-suggest').innerHTML = '';
@@ -415,7 +415,7 @@ $('form-add').addEventListener('submit', async (e) => {
 function abrirEditar(m) {
   if (!isAdmin) return;
   limpiarError('edit-error');
-  FOTO.edit = { blob: null, previa: null, delCatalogo: null };
+  FOTO.edit = { blob: null, previa: null, delCatalogo: null, etiqueta: null };
 
   $('edit-id').value = m.id;
   $('edit-modelo').value = m.modelo || '';
@@ -668,8 +668,9 @@ function mensajeError(err) {
 function pintarFoto(cual, url) {
   const cont = $(cual + '-photo');
   if (url) {
+    const etiqueta = FOTO[cual].delCatalogo === url ? (FOTO[cual].etiqueta || 'Del catálogo') : '';
     cont.innerHTML = `<img src="${esc(url)}" alt="Vista previa" />` +
-      (FOTO[cual].delCatalogo === url ? `<span class="photo-badge">✨ Del catálogo</span>` : '');
+      (etiqueta ? `<span class="photo-badge">✨ ${esc(etiqueta)}</span>` : '');
   } else {
     cont.innerHTML = `<div class="photo-empty"><span class="pe-glyph">📷</span><span>Sin foto</span></div>`;
   }
@@ -684,6 +685,7 @@ async function tomarFoto(cual, file) {
     const r = await comprimirImagen(file);
     FOTO[cual].blob = r.blob;
     FOTO[cual].delCatalogo = null;
+    FOTO[cual].etiqueta = null;
 
     if (FOTO[cual].previa) URL.revokeObjectURL(FOTO[cual].previa);
     FOTO[cual].previa = URL.createObjectURL(r.blob);
@@ -732,6 +734,7 @@ function aplicarDelCatalogo(entrada) {
   }
   if (entrada.imagen_url && !FOTO.add.blob) {
     FOTO.add.delCatalogo = entrada.imagen_url;
+    FOTO.add.etiqueta = 'Ya cargada antes';
     pintarFoto('add', entrada.imagen_url);
     $('add-photo-note').textContent = 'Foto reutilizada';
     $('add-photo-note').className = 'hint is-good';

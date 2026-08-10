@@ -104,6 +104,182 @@ async function recordarModelo(modelo, imagenUrl, caracteristicas) {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Carga rápida desde el catálogo del proveedor (presets.js)
+   Serie → medida → potencia. Tres toques y la máquina queda cargada
+   con su foto y sus características, sin escribir nada.
+   ═══════════════════════════════════════════════════════════════ */
+
+let _pSerie = null;
+let _pVar   = null;
+let _pPot   = null;
+let _pTipo  = 'todas';
+
+/** 1500 → "1.5 kW" · 6000 → "6 kW" · 60000 → "60 kW" */
+function kW(w) {
+  const k = w / 1000;
+  return (Number.isInteger(k) ? k : k.toFixed(1)) + ' kW';
+}
+
+function abrirCargaRapida() {
+  if (typeof PRESETS === 'undefined' || !PRESETS.length) {
+    toast('Catálogo no disponible', 'No se pudo cargar la lista de máquinas.', 'error');
+    return;
+  }
+  _pSerie = _pVar = _pPot = null;
+  _pTipo = 'todas';
+  $('preset-tipos').querySelectorAll('.chip')
+    .forEach((c) => c.classList.toggle('is-on', c.dataset.t === 'todas'));
+  mostrarPaso(1);
+  pintarSeries();
+  abrirHoja('sheet-preset');
+}
+
+function mostrarPaso(n) {
+  $('preset-paso1').classList.toggle('hidden', n !== 1);
+  $('preset-paso2').classList.toggle('hidden', n !== 2);
+  $('preset-back').classList.toggle('hidden', n !== 2);
+  $('preset-usar').classList.toggle('hidden', n !== 2);
+  $('preset-title').textContent = n === 1 ? 'Carga rápida' : (_pSerie ? 'HSG ' + _pSerie.serie : 'Configurar');
+  $('preset-sub').textContent = n === 1
+    ? 'Elegí la máquina del catálogo'
+    : 'Elegí la medida y la potencia';
+  $('sheet-preset').querySelector('.sheet-body').scrollTop = 0;
+}
+
+function pintarSeries() {
+  const lista = PRESETS.filter((p) => _pTipo === 'todas' || p.tipo === _pTipo);
+  const cont = $('preset-lista');
+
+  if (!lista.length) {
+    cont.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <span class="e-glyph">🔍</span><span class="e-title">Sin máquinas de este tipo</span></div>`;
+    return;
+  }
+
+  cont.innerHTML = lista.map((p) => {
+    const n = p.variantes.length;
+    return `<button type="button" class="preset-card" data-id="${esc(p.id)}">
+        <img src="${esc(p.foto)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">
+        <span class="pc-txt">
+          <span class="pc-nom">${esc(p.serie)}</span>
+          <span class="pc-sub">${n} ${n === 1 ? 'medida' : 'medidas'} · ${esc(p.tipoTxt)}</span>
+        </span>
+      </button>`;
+  }).join('');
+
+  cont.querySelectorAll('.preset-card').forEach((b) => {
+    b.addEventListener('click', () => elegirSerie(b.dataset.id));
+  });
+}
+
+function elegirSerie(id) {
+  _pSerie = PRESETS.find((p) => p.id === id);
+  if (!_pSerie) return;
+
+  _pVar = _pSerie.variantes[0];
+  _pPot = _pVar.potencias[0] || null;
+
+  $('preset-foto').src = _pSerie.foto;
+  $('preset-foto').alt = _pSerie.serie;
+  $('preset-serie').textContent = 'HSG ' + _pSerie.serie;
+  $('preset-lema').textContent = _pSerie.lema || _pSerie.tipoTxt;
+
+  pintarMedidas();
+  pintarPotencias();
+  actualizarResumen();
+  mostrarPaso(2);
+  haptic();
+}
+
+function pintarMedidas() {
+  $('preset-medidas').innerHTML = _pSerie.variantes.map((v, i) => `
+    <button type="button" class="chip${v === _pVar ? ' is-on' : ''}" data-i="${i}">
+      ${esc(v.medida || v.modelo)}
+    </button>`).join('');
+
+  $('preset-medidas').querySelectorAll('.chip').forEach((c) => {
+    c.addEventListener('click', () => {
+      _pVar = _pSerie.variantes[parseInt(c.dataset.i, 10)];
+      // Si la potencia elegida no existe en esta medida, tomar la más baja.
+      if (!_pVar.potencias.includes(_pPot)) _pPot = _pVar.potencias[0] || null;
+      pintarMedidas(); pintarPotencias(); actualizarResumen(); haptic();
+    });
+  });
+}
+
+function pintarPotencias() {
+  $('preset-potencias').innerHTML = _pVar.potencias.map((w) => `
+    <button type="button" class="chip${w === _pPot ? ' is-on' : ''}" data-w="${w}">${kW(w)}</button>`).join('');
+
+  $('preset-potencias').querySelectorAll('.chip').forEach((c) => {
+    c.addEventListener('click', () => {
+      _pPot = parseInt(c.dataset.w, 10);
+      pintarPotencias(); actualizarResumen(); haptic();
+    });
+  });
+}
+
+/** Nombre final de la máquina: "HSG G3015X · 6 kW" */
+function nombrePreset() {
+  if (!_pVar) return '';
+  return `HSG ${_pVar.modelo}` + (_pPot ? ` · ${kW(_pPot)}` : '');
+}
+
+/** Texto de características armado con las especificaciones del fabricante. */
+function caracteristicasPreset() {
+  if (!_pSerie || !_pVar) return '';
+  const partes = [`${_pSerie.tipoTxt} · HSG serie ${_pSerie.serie}.`];
+  if (_pPot) partes.push(`Potencia ${_pPot} W.`);
+  for (const [k, v] of Object.entries(_pVar.specs)) partes.push(`${k}: ${v}.`);
+  return partes.join(' ');
+}
+
+function actualizarResumen() {
+  $('preset-resumen').innerHTML =
+    `<span class="pr-lbl">Se va a cargar</span>
+     <span class="pr-modelo">${esc(nombrePreset())}</span>
+     <span class="pr-specs">${esc(caracteristicasPreset())}</span>`;
+}
+
+/** Vuelca el preset elegido en el formulario de alta. */
+function aplicarPreset() {
+  if (!_pSerie || !_pVar) return;
+
+  $('add-modelo').value = nombrePreset();
+  $('add-caracteristicas').value = caracteristicasPreset();
+  $('add-suggest').innerHTML = '';
+
+  // La foto vive en el repo, así que se guarda su ruta relativa y no hay
+  // nada que subir. Ventaja extra: al ser del mismo origen, la ficha
+  // compartible puede dibujarla en el canvas sin problemas de CORS.
+  FOTO.add.blob = null;
+  FOTO.add.delCatalogo = _pSerie.foto;
+  FOTO.add.etiqueta = 'Catálogo HSG';
+  pintarFoto('add', _pSerie.foto);
+  $('add-photo-note').textContent = 'Foto del catálogo';
+  $('add-photo-note').className = 'hint is-good';
+
+  cerrarHoja('sheet-preset');
+  haptic([12, 45, 12]);
+  toast('Cargada del catálogo', nombrePreset(), 'success', 2600);
+}
+
+/* Eventos del selector. Se registran al cargar: el script es `defer`,
+   así que el DOM ya está armado. */
+$('add-preset').addEventListener('click', abrirCargaRapida);
+$('preset-back').addEventListener('click', () => { mostrarPaso(1); haptic(); });
+$('preset-usar').addEventListener('click', aplicarPreset);
+
+$('preset-tipos').addEventListener('click', (ev) => {
+  const c = ev.target.closest('.chip');
+  if (!c) return;
+  _pTipo = c.dataset.t;
+  $('preset-tipos').querySelectorAll('.chip').forEach((x) => x.classList.toggle('is-on', x === c));
+  pintarSeries();
+  haptic();
+});
+
 /* ── Interfaz de sugerencias ────────────────────────────────── */
 
 /**

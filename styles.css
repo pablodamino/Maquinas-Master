@@ -1031,6 +1031,81 @@ input[type="file"] { display: none; }
   transition: width .25s var(--ease);
 }
 
+/* ── Carga rápida desde el catálogo ─────────────────────────── */
+
+.quick-row { display: flex; gap: .55rem; margin-bottom: 1.3rem; }
+.quick-row .btn { flex: 1; min-width: 0; }
+
+.preset-grid {
+  display: grid; gap: .6rem; margin-top: .9rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.preset-card {
+  display: flex; flex-direction: column; text-align: left;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--r-md); overflow: hidden;
+  transition: border-color var(--d1) var(--ease), transform var(--d1) var(--spring),
+              box-shadow var(--d1) var(--ease);
+}
+.preset-card:hover  { border-color: var(--red-line); box-shadow: var(--shadow-1); transform: translateY(-2px); }
+.preset-card:active { transform: scale(.975); }
+.preset-card img {
+  width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  background: var(--surface-3);
+}
+.preset-card .pc-txt { display: block; padding: .55rem .65rem .7rem; }
+/* Clases explícitas: `.preset-card span` también alcanzaba al contenedor
+   .pc-txt, y el nombre de la serie heredaba el gris del subtítulo. */
+.preset-card .pc-nom {
+  display: block; font-size: .93rem; font-weight: 800;
+  letter-spacing: -.02em; color: var(--text);
+}
+.preset-card .pc-sub {
+  display: block; margin-top: .12rem;
+  font-size: .735rem; color: var(--text-3);
+}
+
+.preset-hero {
+  position: relative; border-radius: var(--r-md); overflow: hidden;
+  margin-bottom: 1.2rem; background: var(--surface-3);
+}
+.preset-hero img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; display: block; }
+.preset-hero-txt {
+  position: absolute; inset: auto 0 0 0; padding: 1.4rem .85rem .7rem;
+  background: linear-gradient(180deg, transparent, rgba(6,6,9,.88));
+  color: #fff;
+}
+.preset-hero-txt strong { display: block; font-size: 1.15rem; font-weight: 800; letter-spacing: -.028em; }
+.preset-hero-txt span {
+  display: block; margin-top: .15rem; font-size: .795rem;
+  color: rgba(255,255,255,.72); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-clamp: 2; overflow: hidden;
+}
+
+/* Chips que envuelven, a diferencia de los de la barra que hacen scroll. */
+.chips-wrap { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chips-wrap .chip { height: 36px; font-size: .82rem; }
+
+.preset-resumen {
+  margin-top: 1.3rem; padding: .85rem .95rem;
+  background: var(--red-soft); border: 1px solid var(--red-line);
+  border-radius: var(--r-md);
+}
+.preset-resumen .pr-lbl {
+  font-size: .655rem; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--red); opacity: .85;
+}
+.preset-resumen .pr-modelo {
+  display: block; margin-top: .3rem;
+  font-size: 1.02rem; font-weight: 800; letter-spacing: -.025em; color: var(--text);
+}
+.preset-resumen .pr-specs {
+  display: block; margin-top: .35rem;
+  font-size: .795rem; color: var(--text-2); line-height: 1.5;
+}
+
 /* Sugerencias del catálogo */
 .suggest {
   margin-top: .5rem; padding: .55rem .65rem;
