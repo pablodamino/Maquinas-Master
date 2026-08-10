@@ -186,9 +186,10 @@ vendida— en 3000×1500, 6000×1500 y 6000×2500, con 1,5 / 3 / 6 / 12 kW.
 Una máquina puede tener `foto: null` si no hay imagen disponible: la app muestra
 una portada generada y le avisa al vendedor que le saque una foto.
 
-El código de la GC es **G + medida de mesa + C** (`G3015C`, `G6015C`, `G6025C`),
-la misma convención que usa HSG en el resto de sus series. Confirmado por el
-vendedor.
+Los códigos de la GC son `C3015`, `C6015` y `C6025`, tomados de la chapa de la
+propia máquina. Encajan con la versión con cabina que HSG sí publica, la
+`C3015B`: **C#### para la abierta, C####B para la cerrada**. En la app la serie
+se muestra como "GC", que es como la llama el vendedor.
 
 ## Cosas para saber
 

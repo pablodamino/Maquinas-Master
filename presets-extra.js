@@ -32,11 +32,13 @@ const PRESETS_EXTRA = [
     lema: 'Versión sin cabina. El modelo más vendido de HSG. No figura en el catálogo web del fabricante.',
     foto: 'catalogo/gc-3015.webp',
     url: '',
-    // El código es G + medida de mesa + C, igual que el resto de HSG
-    // (G3015X, G3015H, G3015T…). Confirmado por el vendedor.
+    /* Códigos tomados de la chapa de la propia máquina, que dice "C3015".
+       Encajan además con la versión con cabina que HSG sí publica, la
+       C3015B: C#### para la abierta, C####B para la cerrada.
+       El vendedor llama "GC" a la línea, y por eso la serie se muestra así. */
     variantes: [
       {
-        modelo: 'G3015C',
+        modelo: 'C3015',
         medida: '3000 × 1500 mm',
         foto: 'catalogo/gc-3015.webp',
         potencias: [1500, 3000, 6000, 12000],
@@ -46,7 +48,7 @@ const PRESETS_EXTRA = [
         }
       },
       {
-        modelo: 'G6015C',
+        modelo: 'C6015',
         medida: '6000 × 1500 mm',
         foto: 'catalogo/gc-6015.webp',
         potencias: [1500, 3000, 6000, 12000],
@@ -56,7 +58,7 @@ const PRESETS_EXTRA = [
         }
       },
       {
-        modelo: 'G6025C',
+        modelo: 'C6025',
         medida: '6000 × 2500 mm',
         /* Comparte la foto de la 6015: solo cambia el ancho de mesa. */
         foto: 'catalogo/gc-6015.webp',
