@@ -141,9 +141,15 @@ function mostrarPaso(n) {
   $('preset-back').classList.toggle('hidden', n !== 2);
   $('preset-usar').classList.toggle('hidden', n !== 2);
   $('preset-title').textContent = n === 1 ? 'Carga rápida' : (_pSerie ? 'HSG ' + _pSerie.serie : 'Configurar');
-  $('preset-sub').textContent = n === 1
-    ? 'Elegí la máquina del catálogo'
-    : 'Elegí la medida y la potencia';
+
+  if (n === 1) {
+    $('preset-sub').textContent = 'Elegí la máquina del catálogo';
+  } else {
+    const conPot = _pVar && _pVar.potencias.length > 0;
+    const porModelo = _pSerie && (_pSerie.tipo === 'plegado' || _pSerie.tipo === 'soldadura');
+    const que = porModelo ? 'el modelo' : 'la medida';
+    $('preset-sub').textContent = conPot ? `Elegí ${que} y la potencia` : `Elegí ${que}`;
+  }
   $('sheet-preset').querySelector('.sheet-body').scrollTop = 0;
 }
 
@@ -159,11 +165,16 @@ function pintarSeries() {
 
   cont.innerHTML = lista.map((p) => {
     const n = p.variantes.length;
+    // Con una sola variante conviene mostrar el código real del modelo: la
+    // serie "CB" se vende como C3015B, y buscándola por "CB" no aparecía.
+    const detalle = n === 1
+      ? esc(p.variantes[0].modelo)
+      : `${n} ${p.tipo === 'plegado' || p.tipo === 'soldadura' ? 'modelos' : 'medidas'}`;
     return `<button type="button" class="preset-card" data-id="${esc(p.id)}">
         <img src="${esc(p.foto)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">
         <span class="pc-txt">
           <span class="pc-nom">${esc(p.serie)}</span>
-          <span class="pc-sub">${n} ${n === 1 ? 'medida' : 'medidas'} · ${esc(p.tipoTxt)}</span>
+          <span class="pc-sub">${detalle} · ${esc(p.tipoTxt)}</span>
         </span>
       </button>`;
   }).join('');
@@ -184,6 +195,10 @@ function elegirSerie(id) {
   $('preset-foto').alt = _pSerie.serie;
   $('preset-serie').textContent = 'HSG ' + _pSerie.serie;
   $('preset-lema').textContent = _pSerie.lema || _pSerie.tipoTxt;
+
+  // Las plegadoras se eligen por modelo y tonelaje, no por medida de mesa.
+  const porModelo = _pSerie.tipo === 'plegado' || _pSerie.tipo === 'soldadura';
+  $('preset-medida-label').textContent = porModelo ? 'Modelo' : 'Medida';
 
   pintarMedidas();
   pintarPotencias();
@@ -209,6 +224,11 @@ function pintarMedidas() {
 }
 
 function pintarPotencias() {
+  // Sin potencias publicadas (plegadoras), el paso directamente no aparece.
+  const hay = _pVar.potencias.length > 0;
+  $('preset-pot-field').classList.toggle('hidden', !hay);
+  if (!hay) { $('preset-potencias').innerHTML = ''; return; }
+
   $('preset-potencias').innerHTML = _pVar.potencias.map((w) => `
     <button type="button" class="chip${w === _pPot ? ' is-on' : ''}" data-w="${w}">${kW(w)}</button>`).join('');
 

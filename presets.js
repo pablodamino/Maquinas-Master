@@ -12,7 +12,7 @@ const PRESETS = [
     "serie": "GT",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "Ofrece un corte instantáneo de alta velocidad con un rendimiento constante y estable. Aumenta enormemente la producción",
+    "lema": "Ofrece un corte instantáneo de alta velocidad con un rendimiento constante y estable. Aumenta enormemente la producción…",
     "foto": "catalogo/gt.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-gt.html",
     "variantes": [
@@ -72,7 +72,7 @@ const PRESETS = [
     "serie": "GH",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "La nueva Serie GH está diseñada para superar a las competencias, con una aceleración ultra rápida y una capacidad de pot",
+    "lema": "La nueva Serie GH está diseñada para superar a las competencias, con una aceleración ultra rápida y una capacidad de…",
     "foto": "catalogo/gh.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-gh.html",
     "variantes": [
@@ -145,7 +145,7 @@ const PRESETS = [
     "serie": "GX",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "La serie GX está afinada por el Centro Global de I + D de HSG en Kanagawa, Tokio. Este centro lidera los avances pionero",
+    "lema": "La serie GX está afinada por el Centro Global de I + D de HSG en Kanagawa, Tokio. Este centro lidera los avances…",
     "foto": "catalogo/gx.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-gx.html",
     "variantes": [
@@ -222,7 +222,7 @@ const PRESETS = [
     "serie": "GF",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "La base de la máquina está compuesta por varias secciones modulares, lo que permite configurar de forma flexible tanto l",
+    "lema": "La base de la máquina está compuesta por varias secciones modulares, lo que permite configurar de forma flexible tanto…",
     "foto": "catalogo/gf.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-gf.html",
     "variantes": [
@@ -267,7 +267,7 @@ const PRESETS = [
     "serie": "X",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "La nueva Serie X presenta una estructura compacta y todo en uno,ocupando menos espacio e requeriendo instalación más fác",
+    "lema": "La nueva Serie X presenta una estructura compacta y todo en uno,ocupando menos espacio e requeriendo instalación más…",
     "foto": "catalogo/x.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-x.html",
     "variantes": [
@@ -293,7 +293,7 @@ const PRESETS = [
     "serie": "GL",
     "tipo": "chapa",
     "tipoTxt": "Corte de chapa",
-    "lema": "La serie GL integra cuatro funciones: desenrollado, alimentación, corte y descarga. Es una evolución: de un simple corte",
+    "lema": "La serie GL integra cuatro funciones: desenrollado, alimentación, corte y descarga. Es una evolución: de un simple…",
     "foto": "catalogo/gl.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-gl.html",
     "variantes": [
@@ -345,7 +345,7 @@ const PRESETS = [
     "serie": "TS2",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "La velocidad máxima de enlace es de 140 m / min, la aceleración es de 1,4G y la velocidad de rotación del mandril es de",
+    "lema": "La velocidad máxima de enlace es de 140 m / min, la aceleración es de 1,4G y la velocidad de rotación del mandril es de…",
     "foto": "catalogo/ts2.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-ts2.html",
     "variantes": [
@@ -390,7 +390,7 @@ const PRESETS = [
     "serie": "TX",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "Diseñada para procesar tubos de hasta 360 mm (TX3) / 510 mm (TX5) de diámetro y con un peso de hasta 1200 kg (TX3) / 200",
+    "lema": "Diseñada para procesar tubos de hasta 360 mm (TX3) / 510 mm (TX5) de diámetro y con un peso de hasta 1200 kg (TX3) /…",
     "foto": "catalogo/tx.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-tx.html",
     "variantes": [
@@ -435,7 +435,7 @@ const PRESETS = [
     "serie": "TL",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "HSG Laser lanzó la primera generación de la máquina cortadora láser de tubo de alta resistencia HSG de cuatro mandriles,",
+    "lema": "HSG Laser lanzó la primera generación de la máquina cortadora láser de tubo de alta resistencia HSG de cuatro…",
     "foto": "catalogo/tl.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-tl.html",
     "variantes": [
@@ -559,7 +559,7 @@ const PRESETS = [
     "serie": "R2PRO",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "Este sistema, impulsado por una velocidad de mandril de 140 r/min, una velocidad de enlace de 150 m/min y una aceleració",
+    "lema": "Este sistema, impulsado por una velocidad de mandril de 140 r/min, una velocidad de enlace de 150 m/min y una…",
     "foto": "catalogo/r2pro.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-r2pro.html",
     "variantes": [
@@ -608,7 +608,7 @@ const PRESETS = [
     "serie": "R2",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "R2 adopta una estructura de armadura triangular, lo que hace que la máquina entera sea más pesada y más rígida, lo que g",
+    "lema": "R2 adopta una estructura de armadura triangular, lo que hace que la máquina entera sea más pesada y más rígida, lo que…",
     "foto": "catalogo/r2.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-r2.html",
     "variantes": [
@@ -634,7 +634,7 @@ const PRESETS = [
     "serie": "R3",
     "tipo": "tubo",
     "tipoTxt": "Corte de tubo",
-    "lema": "Con los mandriles de carrera completa HSG, los tubos se pueden fabricar en todo el rango de sujeción de 40 mm a 360 mm s",
+    "lema": "Con los mandriles de carrera completa HSG, los tubos se pueden fabricar en todo el rango de sujeción de 40 mm a 360 mm…",
     "foto": "catalogo/r3.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-r3.html",
     "variantes": [
@@ -683,7 +683,7 @@ const PRESETS = [
     "serie": "CB",
     "tipo": "chapa-tubo",
     "tipoTxt": "Corte de chapa y tubo",
-    "lema": "Diseño integrado, una máquina integra la función de corte de tubos y láminas, ahorrando costos de adquisición de equipos",
+    "lema": "Diseño integrado, una máquina integra la función de corte de tubos y láminas, ahorrando costos de adquisición de…",
     "foto": "catalogo/cb.webp",
     "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-cb.html",
     "variantes": [
@@ -702,6 +702,246 @@ const PRESETS = [
           "Max. Velocidad de enlace": "100m/min",
           "Procesamiento de tubo redondo Dim": "Φ20-Φ240mm",
           "Procesamiento de tubo cuadrado Dim": "□20*20-□240*240mm"
+        }
+      }
+    ]
+  },
+  {
+    "id": "hc",
+    "serie": "HC",
+    "tipo": "plegado",
+    "tipoTxt": "Plegadora",
+    "lema": "Calcula automáticamente el ángulo de curvatura, la presión principal y la compensación de la desviación",
+    "foto": "catalogo/hc.webp",
+    "url": "https://www.hsglaser.com/es/product/bending-machine-hc.html",
+    "variantes": [
+      {
+        "modelo": "HC6015",
+        "medida": "HC6015 · 60 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "60 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "170L",
+          "Peso de todo el equipo": "4T"
+        }
+      },
+      {
+        "modelo": "HC6020",
+        "medida": "HC6020 · 60 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "60 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "170L",
+          "Peso de todo el equipo": "5.5T"
+        }
+      },
+      {
+        "modelo": "HC8025",
+        "medida": "HC8025 · 80 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "80 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "7T"
+        }
+      },
+      {
+        "modelo": "HC1103",
+        "medida": "HC1103 · 110 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "110 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "200mm/s",
+          "Velocidad de retorno": "150mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "8T"
+        }
+      },
+      {
+        "modelo": "HC1104",
+        "medida": "HC1104 · 110 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "110 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "9T"
+        }
+      },
+      {
+        "modelo": "HC1303",
+        "medida": "HC1303 · 130 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "130 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "200mm/s",
+          "Velocidad de retorno": "150mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "9.5T"
+        }
+      },
+      {
+        "modelo": "HC1304",
+        "medida": "HC1304 · 130 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "130 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "10.5T"
+        }
+      },
+      {
+        "modelo": "HC1703",
+        "medida": "HC1703 · 170 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "170 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "10.5T"
+        }
+      },
+      {
+        "modelo": "HC1704",
+        "medida": "HC1704 · 170 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "170 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "200L",
+          "Peso de todo el equipo": "12T"
+        }
+      },
+      {
+        "modelo": "HC2203",
+        "medida": "HC2203 · 220 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "220 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "400L",
+          "Peso de todo el equipo": "14T"
+        }
+      },
+      {
+        "modelo": "HC2204",
+        "medida": "HC2204 · 220 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "220 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "140mm/s",
+          "Capacidad del depósito de combustible": "400L",
+          "Peso de todo el equipo": "15T"
+        }
+      },
+      {
+        "modelo": "HC2503",
+        "medida": "HC2503 · 250 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "250 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "180mm/s",
+          "Velocidad de retorno": "120mm/s",
+          "Capacidad del depósito de combustible": "400L",
+          "Peso de todo el equipo": "15T"
+        }
+      },
+      {
+        "modelo": "HC2504",
+        "medida": "HC2504 · 250 Ton",
+        "potencias": [],
+        "specs": {
+          "Fuerza de plegado": "250 Ton",
+          "Número de ejes CNC": "4+1",
+          "Profundidad de garganta": "400mm",
+          "Velocidad de descenso rápido": "160mm/s",
+          "Velocidad de retorno": "120mm/s",
+          "Capacidad del depósito de combustible": "400L",
+          "Peso de todo el equipo": "16T"
+        }
+      }
+    ]
+  },
+  {
+    "id": "hlgw",
+    "serie": "HLGW",
+    "tipo": "soldadura",
+    "tipoTxt": "Soldadora",
+    "lema": "Ahorro de tiempo: reduce el tiempo de soldadura, especialmente para cordones largos. La zona afectada por el calor…",
+    "foto": "catalogo/hlgw.webp",
+    "url": "https://www.hsglaser.com/es/product/laser-welding-machine-hlgw.html",
+    "variantes": [
+      {
+        "modelo": "HL-GW",
+        "medida": "",
+        "potencias": [
+          2000
+        ],
+        "specs": {
+          "Brazo robótico": "Fanuc CRX10iAL",
+          "Número de ejes de control": "6 ejes",
+          "Rango de funcionamiento (X, Y)": "1418 mm, 2836 mm (hasta la punta de la brida) (J4 = +90°)",
+          "Repetibilidad": "±0,04mm"
+        }
+      }
+    ]
+  },
+  {
+    "id": "fmw",
+    "serie": "FMW",
+    "tipo": "soldadura",
+    "tipoTxt": "Soldadora",
+    "lema": "Los cabezales de soldadura WOBBLE cuentan con el modelo de soldadura oscilante que permite ajustar la facula con una…",
+    "foto": "catalogo/fmw.webp",
+    "url": "https://www.hsglaser.com/es/product/laser-welding-machine-fmw.html",
+    "variantes": [
+      {
+        "modelo": "FMW",
+        "medida": "",
+        "potencias": [
+          1500,
+          2000,
+          3000
+        ],
+        "specs": {
+          "Dimensiones totales": "624*806*970mm(1~2KW)"
         }
       }
     ]

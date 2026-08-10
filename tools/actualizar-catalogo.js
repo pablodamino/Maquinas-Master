@@ -25,14 +25,18 @@ const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKi
 const CATEGORIAS = [
   ['sheet-metal', 'chapa', 'Corte de chapa'],
   ['tube-metal', 'tubo', 'Corte de tubo'],
-  ['sheet-tube', 'chapa-tubo', 'Corte de chapa y tubo']
+  ['sheet-tube', 'chapa-tubo', 'Corte de chapa y tubo'],
+  ['bending-machine', 'plegado', 'Plegadora'],
+  ['welding-machine', 'soldadura', 'Soldadora']
 ];
 
 /* Potencias comerciales de fibra. El sitio publica rangos ("3000W-20000W");
    acá se traducen a las opciones concretas que se pueden pedir. */
 const ESCALONES = [1000, 1500, 2000, 3000, 4000, 6000, 8000, 12000, 15000, 20000, 25000, 30000, 40000, 60000];
 
-const CLAVES_POT   = ['Potencia', 'Potencia del láser', 'Poder', 'Potenza Laser'];
+const CLAVES_POT   = ['Potencia', 'Potencia del láser', 'Potencia láser máxima', 'Poder', 'Potenza Laser'];
+/* Las plegadoras no se miden en watts sino en toneladas de fuerza. */
+const CLAVES_FUERZA = ['Fuerza de plegado', 'Fuerza de flexión'];
 const CLAVES_AREA  = ['Área de trabajo (L*W)', 'Área de corte (Largo × Ancho)', 'Formato de procesamiento', 'Area di lavoro'];
 const CLAVES_TUBO  = ['Procesamiento de tubo redondo Dim', 'Capacidad De Corte De Tubo Redondo',
                       'Capacidad de corte de tubos redondos', 'Rango de tubos en diámetro'];
@@ -52,6 +56,22 @@ const limpiar = (s) => s
   .replace(/\s+/g, ' ').trim();
 
 const primero = (campos, claves) => { for (const k of claves) if (campos[k]) return campos[k]; return ''; };
+
+/**
+ * Los lemas del sitio vienen con viñetas al principio y varias frases pegadas
+ * ("* Calcula el ángulo * Corrige la desviación"). Se toma la primera frase y
+ * se corta en palabra entera, para que no queden colgando sílabas sueltas.
+ */
+function pulirLema(txt) {
+  let s = String(txt || '')
+    .replace(/^[\s*•·\-–—]+/, '')
+    .split(/\s*[*•]\s*/)[0]
+    .trim();
+  if (s.length <= 120) return s;
+  s = s.slice(0, 120);
+  const corte = s.lastIndexOf(' ');
+  return (corte > 60 ? s.slice(0, corte) : s).replace(/[\s,;.]+$/, '') + '…';
+}
 
 /* El cuadro de especificaciones tiene una columna de etiquetas y una columna
    por modelo dentro de un carrusel. */
@@ -129,8 +149,9 @@ function medida(campos) {
     try { html = await bajar(BASE + ruta); }
     catch (e) { console.log(`! ${info.slug}: ${e.message}`); continue; }
 
+    // HSG antepone el tipo de máquina al nombre de la serie en la URL.
     const serie = info.slug
-      .replace(/^laser-cutting-machine-/, '').replace(/^automation-equipment-/, '')
+      .replace(/^(laser-cutting-machine|laser-welding-machine|welding-machine|bending-machine|automation-equipment)-/, '')
       .toUpperCase();
     const id = serie.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -159,32 +180,37 @@ function medida(campos) {
       const specs = {};
       for (const [k, v] of Object.entries(m.campos)) {
         // El modelo y la potencia ya viajan en el nombre de la máquina.
-        if (/^Model|^Potencia$|^Potencia del l|^Poder$|^Potenza/i.test(k)) continue;
+        if (/^Model|^Potencia|^Poder$|^Potenza/i.test(k)) continue;
         specs[k] = v;
       }
+      // Etiqueta de la variante: el área o el diámetro cuando existen; para las
+      // plegadoras, el modelo con su tonelaje, que es lo que las distingue.
+      const med = medida(m.campos);
+      const fuerza = primero(m.campos, CLAVES_FUERZA);
       return {
         modelo: m.modelo,
-        medida: medida(m.campos),
+        medida: med || (fuerza ? m.modelo + ' · ' + fuerza : ''),
         potencias: potencias(primero(m.campos, CLAVES_POT)),
         specs
       };
     });
 
-    if (!variantes.some((v) => v.potencias.length)) {
-      console.log(`${serie.padEnd(8)} sin potencias legibles, se omite`);
-      continue;
-    }
-
+    // No se exige potencia: las plegadoras se miden en toneladas y algunas
+    // soldadoras vienen con una sola potencia fija.
     presets.push({
       id, serie,
       tipo: info.tipo,
       tipoTxt: info.tipoTxt,
-      lema: (lema || h1).slice(0, 120).trim(),
+      lema: pulirLema(lema || h1),
       foto: 'catalogo/' + archivo,
       url: BASE + ruta,
       variantes
     });
-    console.log(`${serie.padEnd(8)} ${String(variantes.length).padStart(2)} medidas  foto OK`);
+    const conPot = variantes.some((v) => v.potencias.length);
+    console.log(
+      `${serie.padEnd(8)} ${String(variantes.length).padStart(2)} variantes  ` +
+      `${(conPot ? 'con potencia' : 'sin potencia').padEnd(13)}${info.tipoTxt}`
+    );
   }
 
   const cabecera = `/* ═══════════════════════════════════════════════════════════════

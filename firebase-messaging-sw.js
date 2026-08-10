@@ -7,7 +7,7 @@
    pisan entre sí y gana el último registrado.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION      = 'pm-v2.2.0';
+const VERSION      = 'pm-v2.3.0';
 const CACHE_SHELL  = `${VERSION}-shell`;
 const CACHE_FOTOS  = `${VERSION}-fotos`;
 const CACHE_SDK    = `${VERSION}-sdk`;

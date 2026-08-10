@@ -389,6 +389,8 @@
           <button type="button" class="chip" data-t="chapa">Chapa</button>
           <button type="button" class="chip" data-t="tubo">Tubo</button>
           <button type="button" class="chip" data-t="chapa-tubo">Chapa y tubo</button>
+          <button type="button" class="chip" data-t="plegado">Plegadoras</button>
+          <button type="button" class="chip" data-t="soldadura">Soldadoras</button>
         </div>
         <div class="preset-grid" id="preset-lista"></div>
       </div>
@@ -404,11 +406,12 @@
         </div>
 
         <div class="field">
-          <label>Medida</label>
+          <label id="preset-medida-label">Medida</label>
           <div class="chips-wrap" id="preset-medidas"></div>
         </div>
 
-        <div class="field">
+        <!-- Se oculta en las plegadoras, que se miden en toneladas y no en watts. -->
+        <div class="field" id="preset-pot-field">
           <label>Potencia</label>
           <div class="chips-wrap" id="preset-potencias"></div>
         </div>
