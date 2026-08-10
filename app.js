@@ -957,6 +957,35 @@ $('np-mark').addEventListener('click', () => {
   toast('Todo al día', '', 'success', 1800);
 });
 
+/* ── Actualización automática ───────────────────────────────── */
+
+/* El Service Worker sirve primero lo que tiene en caché y recién después
+   busca la versión nueva. Eso significa que una actualización recién se ve
+   en la SIGUIENTE apertura, y los vendedores se quedaban mirando la versión
+   vieja sin saberlo. Acá se detecta cuando el worker nuevo toma el control
+   y se recarga sola. */
+if ('serviceWorker' in navigator) {
+  // Si no había controlador, es la primera visita: el claim() inicial no
+  // es una actualización y no hay que recargar nada.
+  const _habiaSW = !!navigator.serviceWorker.controller;
+  let _recargando = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!_habiaSW || _recargando) return;
+    _recargando = true;
+
+    // Con una hoja abierta, recargar borraría lo que el vendedor está
+    // cargando. En ese caso se ofrece y se espera a que él decida.
+    const ocupado = !!document.querySelector('.overlay:not(.hidden)');
+    if (ocupado) {
+      const t = toast('Hay una versión nueva', 'Tocá acá para actualizar.', 'info', 30000);
+      t?.addEventListener('click', () => location.reload());
+      return;
+    }
+    location.reload();
+  });
+}
+
 /* ── Instalación ────────────────────────────────────────────── */
 
 window.addEventListener('beforeinstallprompt', (e) => {

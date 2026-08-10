@@ -7,7 +7,7 @@
    pisan entre sí y gana el último registrado.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION      = 'pm-v2.6.1';
+const VERSION      = 'pm-v2.7.0';
 const CACHE_SHELL  = `${VERSION}-shell`;
 const CACHE_FOTOS  = `${VERSION}-fotos`;
 const CACHE_SDK    = `${VERSION}-sdk`;
@@ -34,8 +34,17 @@ const SHELL = [
 self.addEventListener('install', (ev) => {
   ev.waitUntil((async () => {
     const shell = await caches.open(CACHE_SHELL);
-    // Uno por uno: con addAll, un solo 404 tira abajo toda la instalación.
-    await Promise.all(SHELL.map((u) => shell.add(u).catch(() => {})));
+
+    /* cache:'reload' saltea la caché HTTP del navegador. Sin esto, GitHub
+       Pages sirve con max-age=600 y el worker nuevo podía guardar archivos
+       viejos, dejando la actualización a medias. Uno por uno, porque con
+       addAll un solo 404 tira abajo toda la instalación. */
+    await Promise.all(SHELL.map(async (u) => {
+      try {
+        const res = await fetch(u, { cache: 'reload' });
+        if (res && res.ok) await shell.put(u, res);
+      } catch (e) { /* se reintenta sola en el próximo fetch */ }
+    }));
 
     const sdk = await caches.open(CACHE_SDK);
     await Promise.all(SDK.map((u) => sdk.add(u).catch(() => {})));
