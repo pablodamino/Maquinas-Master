@@ -133,11 +133,24 @@ function medida(campos) {
     try { html = await bajar(`${BASE}/es/products/${slug}`); }
     catch (e) { console.log(`! categoría ${slug}: ${e.message}`); continue; }
 
-    for (const m of html.matchAll(/\/es\/product\/([a-z0-9\-]+)\.html/g)) {
-      if (!productos.has(m[0])) productos.set(m[0], { slug: m[1], tipo, tipoTxt });
-    }
-    for (const m of html.matchAll(/\/\/static\.hsglasercnc\.com\/img\/products\/([a-z0-9_\-]+)\.webp/g)) {
-      imagenes.set(m[1], 'https:' + m[0]);
+    const enlaces = [...html.matchAll(/\/es\/product\/([a-z0-9\-]+)\.html/g)]
+      .map((m) => ({ ruta: m[0], slug: m[1], pos: m.index }));
+    const imgs = [...html.matchAll(/\/\/static\.hsglasercnc\.com\/img\/products\/[a-z0-9_\-]+\.webp/g)]
+      .map((m) => ({ url: 'https:' + m[0], pos: m.index }));
+
+    for (const e of enlaces) {
+      if (!productos.has(e.ruta)) productos.set(e.ruta, { slug: e.slug, tipo, tipoTxt });
+      if (imagenes.has(e.ruta)) continue;
+
+      // La foto de cada tarjeta es la que aparece más cerca del enlace dentro
+      // del HTML. Buscarla por nombre no sirve: HSG no es consistente y usa
+      // sufijos y prefijos sueltos ("t1" para la T2, "eur2pro" para la R2 PRO).
+      let mejor = null, dist = Infinity;
+      for (const i of imgs) {
+        const d = Math.abs(i.pos - e.pos);
+        if (d < dist) { dist = d; mejor = i.url; }
+      }
+      if (mejor && dist < 4000) imagenes.set(e.ruta, mejor);
     }
   }
 
@@ -158,16 +171,12 @@ function medida(campos) {
     const modelos = extraerParametros(html);
     if (!modelos.length) { console.log(`${serie.padEnd(8)} sin especificaciones, se omite`); continue; }
 
-    // La imagen puede llamarse igual que la serie, o con sufijos ("r11", "eur2pro").
-    const clave = [...imagenes.keys()].find((k) => k === id)
-      || [...imagenes.keys()].find((k) => k === id + '1')
-      || [...imagenes.keys()].find((k) => k.replace(/^eu/, '') === id)
-      || [...imagenes.keys()].find((k) => k.startsWith(id));
-    if (!clave) { console.log(`${serie.padEnd(8)} sin foto, se omite`); continue; }
+    const urlFoto = imagenes.get(ruta);
+    if (!urlFoto) { console.log(`${serie.padEnd(8)} sin foto, se omite`); continue; }
 
     const archivo = `${id}.webp`;
     try {
-      fs.writeFileSync(path.join(DIR_FOTOS, archivo), await bajar(imagenes.get(clave), true));
+      fs.writeFileSync(path.join(DIR_FOTOS, archivo), await bajar(urlFoto, true));
     } catch (e) {
       console.log(`${serie.padEnd(8)} error bajando la foto: ${e.message}`);
       continue;

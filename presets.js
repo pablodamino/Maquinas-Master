@@ -679,6 +679,51 @@ const PRESETS = [
     ]
   },
   {
+    "id": "t2",
+    "serie": "T2",
+    "tipo": "tubo",
+    "tipoTxt": "Corte de tubo",
+    "lema": "Desarrollado en el Centro Global de I + D de HSG en Kanagawa, Tokio, un centro de innovación en óptica láser. Diseñado…",
+    "foto": "catalogo/t2.webp",
+    "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-t2.html",
+    "variantes": [
+      {
+        "modelo": "T2",
+        "medida": "Ø20-240mm",
+        "potencias": [
+          3000,
+          4000,
+          6000
+        ],
+        "specs": {
+          "Rango de tubos en diámetro": "Φ20-240mm",
+          "Capacidad De Corte De Tubo Cuadrado": "□20×20mm- □240×240mm",
+          "Peso de un solo tubo": "300kg",
+          "Velocidad de Chuck": "100 rpm",
+          "Velocidad máxima de enlace": "100m/min",
+          "Aceleración máxima": "1.0G"
+        }
+      },
+      {
+        "modelo": "T3",
+        "medida": "Ø40-350mm",
+        "potencias": [
+          3000,
+          4000,
+          6000
+        ],
+        "specs": {
+          "Rango de tubos en diámetro": "Φ40-350mm",
+          "Capacidad De Corte De Tubo Cuadrado": "□40×40mm- □350×350mm",
+          "Peso de un solo tubo": "600kg",
+          "Velocidad de Chuck": "80 rpm",
+          "Velocidad máxima de enlace": "80m/min",
+          "Aceleración máxima": "0.8G"
+        }
+      }
+    ]
+  },
+  {
     "id": "cb",
     "serie": "CB",
     "tipo": "chapa-tubo",
