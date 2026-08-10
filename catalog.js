@@ -115,6 +115,21 @@ let _pVar   = null;
 let _pPot   = null;
 let _pTipo  = 'todas';
 
+/**
+ * Las máquinas cargadas a mano (presets-extra.js) van primero, porque son las
+ * que el proveedor no publica y suelen ser las más vendidas.
+ */
+function catalogoCompleto() {
+  const extra = typeof PRESETS_EXTRA !== 'undefined' ? PRESETS_EXTRA : [];
+  const web   = typeof PRESETS !== 'undefined' ? PRESETS : [];
+  return [...extra, ...web];
+}
+
+/** Portada para las máquinas sin foto: no todas están publicadas. */
+const fotoHtml = (p, cls) => p.foto
+  ? `<img class="${cls}" src="${esc(p.foto)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">`
+  : `<span class="${cls} preset-sinfoto"><span>⚙</span></span>`;
+
 /** 1500 → "1.5 kW" · 6000 → "6 kW" · 60000 → "60 kW" */
 function kW(w) {
   const k = w / 1000;
@@ -122,7 +137,7 @@ function kW(w) {
 }
 
 function abrirCargaRapida() {
-  if (typeof PRESETS === 'undefined' || !PRESETS.length) {
+  if (!catalogoCompleto().length) {
     toast('Catálogo no disponible', 'No se pudo cargar la lista de máquinas.', 'error');
     return;
   }
@@ -154,7 +169,7 @@ function mostrarPaso(n) {
 }
 
 function pintarSeries() {
-  const lista = PRESETS.filter((p) => _pTipo === 'todas' || p.tipo === _pTipo);
+  const lista = catalogoCompleto().filter((p) => _pTipo === 'todas' || p.tipo === _pTipo);
   const cont = $('preset-lista');
 
   if (!lista.length) {
@@ -171,7 +186,7 @@ function pintarSeries() {
       ? esc(p.variantes[0].modelo)
       : `${n} ${p.tipo === 'plegado' || p.tipo === 'soldadura' ? 'modelos' : 'medidas'}`;
     return `<button type="button" class="preset-card" data-id="${esc(p.id)}">
-        <img src="${esc(p.foto)}" alt="${esc(p.serie)}" loading="lazy" decoding="async">
+        ${fotoHtml(p, 'pc-foto')}
         <span class="pc-txt">
           <span class="pc-nom">${esc(p.serie)}</span>
           <span class="pc-sub">${detalle} · ${esc(p.tipoTxt)}</span>
@@ -185,14 +200,16 @@ function pintarSeries() {
 }
 
 function elegirSerie(id) {
-  _pSerie = PRESETS.find((p) => p.id === id);
+  _pSerie = catalogoCompleto().find((p) => p.id === id);
   if (!_pSerie) return;
 
   _pVar = _pSerie.variantes[0];
   _pPot = _pVar.potencias[0] || null;
 
-  $('preset-foto').src = _pSerie.foto;
-  $('preset-foto').alt = _pSerie.serie;
+  const hero = $('preset-hero-media');
+  hero.innerHTML = _pSerie.foto
+    ? `<img id="preset-foto" src="${esc(_pSerie.foto)}" alt="${esc(_pSerie.serie)}">`
+    : `<span class="preset-sinfoto preset-sinfoto-hero"><span>⚙</span></span>`;
   $('preset-serie').textContent = 'HSG ' + _pSerie.serie;
   $('preset-lema').textContent = _pSerie.lema || _pSerie.tipoTxt;
 
@@ -274,11 +291,20 @@ function aplicarPreset() {
   // nada que subir. Ventaja extra: al ser del mismo origen, la ficha
   // compartible puede dibujarla en el canvas sin problemas de CORS.
   FOTO.add.blob = null;
-  FOTO.add.delCatalogo = _pSerie.foto;
-  FOTO.add.etiqueta = 'Catálogo HSG';
-  pintarFoto('add', _pSerie.foto);
-  $('add-photo-note').textContent = 'Foto del catálogo';
-  $('add-photo-note').className = 'hint is-good';
+  if (_pSerie.foto) {
+    FOTO.add.delCatalogo = _pSerie.foto;
+    FOTO.add.etiqueta = 'Catálogo HSG';
+    pintarFoto('add', _pSerie.foto);
+    $('add-photo-note').textContent = 'Foto del catálogo';
+    $('add-photo-note').className = 'hint is-good';
+  } else {
+    // Esta máquina no tiene foto en el catálogo: se le puede sacar una.
+    FOTO.add.delCatalogo = null;
+    FOTO.add.etiqueta = null;
+    pintarFoto('add', null);
+    $('add-photo-note').textContent = 'Sin foto en el catálogo — sacale una';
+    $('add-photo-note').className = 'hint';
+  }
 
   cerrarHoja('sheet-preset');
   haptic([12, 45, 12]);

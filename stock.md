@@ -171,6 +171,25 @@ se refresque el caché de los usuarios.
 Las series sin cuadro de especificaciones o sin foto en el sitio se omiten solas y
 quedan avisadas en la salida del comando.
 
+### Máquinas que no están en la web del proveedor
+
+`presets-extra.js` es un archivo que se edita **a mano** y que el generador
+**nunca pisa**. Es el lugar para lo que HSG no publica: versiones sin cabina,
+modelos discontinuados que se siguen vendiendo, o equipos de otras marcas.
+
+Aparecen primero en la lista, antes del catálogo web. El archivo tiene la
+estructura documentada arriba de todo.
+
+Ahí está cargada la **GC**, la versión sin cabina —según el vendedor, la más
+vendida— en 3000×1500, 6000×1500 y 6000×2500, con 1,5 / 3 / 6 / 12 kW.
+
+Una máquina puede tener `foto: null` si no hay imagen disponible: la app muestra
+una portada generada y le avisa al vendedor que le saque una foto.
+
+**Ojo:** los códigos de modelo de la GC (`GC 3015`, `GC 6015`, `GC 6025`) los
+armamos siguiendo la convención de HSG (largo y ancho en centenas). Si los
+códigos reales del fabricante son otros, hay que corregirlos en ese archivo.
+
 ## Cosas para saber
 
 **Versionado de assets.** Lo maneja el Service Worker con la constante `VERSION` en

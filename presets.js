@@ -990,5 +990,155 @@ const PRESETS = [
         }
       }
     ]
+  },
+  {
+    "id": "storepro",
+    "serie": "STOREPRO",
+    "tipo": "automatizacion",
+    "tipoTxt": "Automatización",
+    "lema": "Difícil de encontrar trabajo de parto, especialmente para el segundo o tercer turno",
+    "foto": "catalogo/storepro.webp",
+    "url": "https://www.hsglaser.com/es/product/automation-equipment-storepro.html",
+    "variantes": [
+      {
+        "modelo": "Store Pro 3015",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Max. / Min. Tamaño de la hoja de carga": "3048×1524 mm (10' x 5')/1000×1000 mm (3.28' x 3.28')",
+          "Peso máximo de la hoja": "600 kg (1322 Ibs)",
+          "Altura de la torre (estándar)": "5100mm (16.73'), modular extension optional",
+          "Max. Altura de apilamiento por paleta": "90mm (3.54'')/310mm (12.2'')",
+          "Max. Cargando peso por paleta": "3000 kg (6613 Ibs)"
+        }
+      },
+      {
+        "modelo": "Store Pro 4020",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Max. / Min. Tamaño de la hoja de carga": "4064×2032 mm (13.3' x 6.6') / 1000×1000 mm (3.28' x 3.28')",
+          "Peso máximo de la hoja": "1200 kg (2645 Ibs)",
+          "Altura de la torre (estándar)": "5100mm (16.73'), modular extension optional",
+          "Max. Altura de apilamiento por paleta": "90mm (3.54'') / 290mm (11.4'')",
+          "Max. Cargando peso por paleta": "5000 kg (11023 Ibs)"
+        }
+      }
+    ]
+  },
+  {
+    "id": "algpro",
+    "serie": "ALGPRO",
+    "tipo": "automatizacion",
+    "tipoTxt": "Automatización",
+    "lema": "Al adoptar un diseño de estructura de pórtico compacto, se superan las limitaciones de los equipos tradicionales, que…",
+    "foto": "catalogo/algpro.webp",
+    "url": "https://www.hsglaser.com/es/product/automation-equipment-algpro.html",
+    "variantes": [
+      {
+        "modelo": "ALG Pro 3015",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Estructura": "Gantry",
+          "Tamaño máximo de hoja de carga": "3048×1524 mm (10'x5')",
+          "Min. Tamaño de hoja: carga / descarga": "1000×1000 mm (3.28' x 3.28')/150mm×150mm (0.5' x 0.5')",
+          "Rango De Espesor De Hoja": "0.8mm - 16mm",
+          "Max. Peso de la hoja para cargar / descargar": "600kg (1323 lbs)",
+          "Max. Cargando peso de las paletas de piezas terminadas": "3000kg (6613 lbs)",
+          "Incl.": "Light curtain and fence/Thin sheet separation"
+        }
+      }
+    ]
+  },
+  {
+    "id": "store",
+    "serie": "STORE",
+    "tipo": "automatizacion",
+    "tipoTxt": "Automatización",
+    "lema": "Diseñado para un almacenamiento eficiente de lotes y un despliegue de producción perfecto. El almacén de materiales…",
+    "foto": "catalogo/store.webp",
+    "url": "https://www.hsglaser.com/es/product/automation-equipment-store.html",
+    "variantes": [
+      {
+        "modelo": "Store3015-8-800",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Tamaño máximo de la hoja": "3000×1500mm",
+          "Peso máximo de carga": "800kg",
+          "Capa": "8",
+          "Peso de carga de cada capa": "3000kg",
+          "Rango de grosor de cada hoja": "1-22mm"
+        }
+      },
+      {
+        "modelo": "Store4020-8-1200",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Tamaño máximo de la hoja": "4000×2000mm",
+          "Peso máximo de carga": "1200kg",
+          "Capa": "8",
+          "Peso de carga de cada capa": "3000kg",
+          "Rango de grosor de cada hoja": "1-20mm"
+        }
+      }
+    ]
+  },
+  {
+    "id": "alg",
+    "serie": "ALG",
+    "tipo": "automatizacion",
+    "tipoTxt": "Automatización",
+    "lema": "Operaciones Automáticas, Garantizan una Producción Segura Logre la carga de material automáticamente para ahorrar…",
+    "foto": "catalogo/alg.webp",
+    "url": "https://www.hsglaser.com/es/product/automation-equipment-alg.html",
+    "variantes": [
+      {
+        "modelo": "ALG3015-400",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Formato disponible": "3000mm*1500mm",
+          "Espesor de carga": "1-12mm",
+          "Peso Peso de carga": "400kg"
+        }
+      },
+      {
+        "modelo": "ALG4020-800",
+        "medida": "",
+        "potencias": [],
+        "specs": {
+          "Formato disponible": "4000mm*2000mm",
+          "Espesor de carga": "1-12mm",
+          "Peso Peso de carga": "800kg"
+        }
+      }
+    ]
+  },
+  {
+    "id": "cell",
+    "serie": "CELL",
+    "tipo": "chapa",
+    "tipoTxt": "Corte 3D de 5 ejes",
+    "lema": "Este cabezal de corte es desarrollado por HSG Laser para corte 3D y tiene funciones de rotación de N",
+    "foto": "catalogo/cell.webp",
+    "url": "https://www.hsglaser.com/es/product/laser-cutting-machine-cell.html",
+    "variantes": [
+      {
+        "modelo": "Cell 3015G",
+        "medida": "3000 × 1500 mm",
+        "potencias": [
+          3000,
+          4000,
+          6000
+        ],
+        "specs": {
+          "Área de trabajo (L*W)": "3000mm*1500mm",
+          "Precisión de posicionamiento": "±0.05mm/m"
+        }
+      }
+    ]
   }
 ];

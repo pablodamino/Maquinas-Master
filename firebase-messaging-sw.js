@@ -7,7 +7,7 @@
    pisan entre sí y gana el último registrado.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION      = 'pm-v2.4.0';
+const VERSION      = 'pm-v2.5.0';
 const CACHE_SHELL  = `${VERSION}-shell`;
 const CACHE_FOTOS  = `${VERSION}-fotos`;
 const CACHE_SDK    = `${VERSION}-sdk`;
@@ -23,7 +23,7 @@ const SDK = [
 
 const SHELL = [
   './', './index.html', './styles.css', './manifest.json',
-  './firebase-config.js', './presets.js', './catalog.js', './share.js', './voice.js',
+  './firebase-config.js', './presets.js', './presets-extra.js', './catalog.js', './share.js', './voice.js',
   './ui.js', './notifications.js', './app.js',
   './icon.svg', './icon-192.png', './icon-512.png',
   './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png'

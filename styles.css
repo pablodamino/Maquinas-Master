@@ -1050,10 +1050,21 @@ input[type="file"] { display: none; }
 }
 .preset-card:hover  { border-color: var(--red-line); box-shadow: var(--shadow-1); transform: translateY(-2px); }
 .preset-card:active { transform: scale(.975); }
-.preset-card img {
-  width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+.preset-card .pc-foto {
+  width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
   background: var(--surface-3);
 }
+
+/* Portada para las máquinas que el proveedor no publica con foto. */
+.preset-sinfoto {
+  display: grid; place-items: center;
+  background:
+    radial-gradient(120% 100% at 50% 0%, var(--red-soft), transparent 70%),
+    var(--surface-3);
+}
+.preset-sinfoto > span { font-size: 1.9rem; opacity: .32; }
+.preset-sinfoto-hero { width: 100%; aspect-ratio: 16 / 8; }
+.preset-sinfoto-hero > span { font-size: 3.2rem; }
 .preset-card .pc-txt { display: block; padding: .55rem .65rem .7rem; }
 /* Clases explícitas: `.preset-card span` también alcanzaba al contenedor
    .pc-txt, y el nombre de la serie heredaba el gris del subtítulo. */
@@ -1070,7 +1081,8 @@ input[type="file"] { display: none; }
   position: relative; border-radius: var(--r-md); overflow: hidden;
   margin-bottom: 1.2rem; background: var(--surface-3);
 }
-.preset-hero img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; display: block; }
+.preset-hero img,
+.preset-hero > div > img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; display: block; }
 .preset-hero-txt {
   position: absolute; inset: auto 0 0 0; padding: 1.4rem .85rem .7rem;
   background: linear-gradient(180deg, transparent, rgba(6,6,9,.88));

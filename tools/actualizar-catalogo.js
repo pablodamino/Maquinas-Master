@@ -27,7 +27,20 @@ const CATEGORIAS = [
   ['tube-metal', 'tubo', 'Corte de tubo'],
   ['sheet-tube', 'chapa-tubo', 'Corte de chapa y tubo'],
   ['bending-machine', 'plegado', 'Plegadora'],
-  ['welding-machine', 'soldadura', 'Soldadora']
+  ['welding-machine', 'soldadura', 'Soldadora'],
+  ['automation-equipment', 'automatizacion', 'Automatización']
+];
+
+/* Productos que están en el sitemap pero no figuran en ninguna página de
+   categoría. Como la asociación de la foto se hace por cercanía dentro de la
+   categoría, para estos hay que indicar la imagen a mano. */
+const SUELTOS = [
+  {
+    ruta: '/es/product/laser-cutting-machine-cell.html',
+    tipo: 'chapa',
+    tipoTxt: 'Corte 3D de 5 ejes',
+    imagen: 'https://static.hsglasercnc.com/img/cell/cell.webp'
+  }
 ];
 
 /* Potencias comerciales de fibra. El sitio publica rangos ("3000W-20000W");
@@ -151,6 +164,13 @@ function medida(campos) {
         if (d < dist) { dist = d; mejor = i.url; }
       }
       if (mejor && dist < 4000) imagenes.set(e.ruta, mejor);
+    }
+  }
+
+  for (const s of SUELTOS) {
+    if (!productos.has(s.ruta)) {
+      productos.set(s.ruta, { slug: s.ruta.match(/\/([a-z0-9\-]+)\.html/)[1], tipo: s.tipo, tipoTxt: s.tipoTxt });
+      imagenes.set(s.ruta, s.imagen);
     }
   }
 
